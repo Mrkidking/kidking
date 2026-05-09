@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from sqlalchemy import text
@@ -18,6 +18,19 @@ def create_app():
     CORS(app)
     JWTManager(app)
     db.init_app(app)
+
+    # Static file caching
+    @app.after_request
+    def add_cache_headers(response):
+        if request.path.startswith("/static/"):
+            ext = os.path.splitext(request.path)[1]
+            if ext in (".css", ".js", ".json", ".svg"):
+                response.cache_control.max_age = 86400  # 1 day
+                response.cache_control.public = True
+            elif ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico"):
+                response.cache_control.max_age = 604800  # 7 days
+                response.cache_control.public = True
+        return response
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)

@@ -21,6 +21,7 @@ var API = {
     deleteMood: function(id) { return this.request("DELETE","/api/moods/"+id); },
     getStats: function() { return this.request("GET","/api/stats"); },
     getWeeklyStats: function() { return this.request("GET","/api/stats/weekly"); },
+    getOnThisDay: function() { return this.request("GET","/api/moods/onthisday"); },
     createFamily: function(n,d) { return this.request("POST","/api/families",{name:n,description:d}); },
     joinFamily: function(c) { return this.request("POST","/api/families/join",{invite_code:c}); },
     getMyFamilies: function() { return this.request("GET","/api/families/my"); },
@@ -178,6 +179,7 @@ function renderFeed(app) {
 
     app.innerHTML =
         '<div class="feed-tabs" id="feed-tabs"><div class="feed-tab active" data-mode="all">🌍 广场</div><div class="feed-tab" data-mode="friends">👥 好友</div></div>' +
+        '<div id="onthisday" style="display:none"></div>' +
         '<div class="create-inline"><div class="create-row"><div class="avatar avatar-'+color+'">'+esc(emoji)+'</div><textarea id="mood-textarea" placeholder="今天心情如何？" maxlength="500"></textarea></div>' +
         '<div class="mood-selector" id="mood-selector">'+moodOpts+'</div><div id="img-preview"></div>' +
         '<div class="create-actions"><div class="left-actions">' +
@@ -195,24 +197,54 @@ function renderFeed(app) {
     // Private toggle
     var pt = $el("private-toggle"), ts = $el("toggle-switch");
     if (pt && ts) pt.onclick = function() { isPrivate = !isPrivate; if (isPrivate) { ts.classList.add("on"); pt.innerHTML = '<span class="toggle-switch on" id="toggle-switch"></span>🔒 私密'; } else { ts.classList.remove("on"); pt.innerHTML = '<span class="toggle-switch" id="toggle-switch"></span>🔒 私密'; } };
-    // Textarea
-    var ta = $el("mood-textarea"); if (ta) ta.oninput = function() { var c = $el("char-cnt"); if (c) c.textContent = this.value.length; };
+    // Textarea with draft auto-save
+    var ta = $el("mood-textarea");
+    if (ta) {
+        var savedDraft = localStorage.getItem("mood_draft") || "";
+        if (savedDraft) ta.value = savedDraft;
+        var cc = $el("char-cnt"); if (cc) cc.textContent = ta.value.length;
+        ta.oninput = function() {
+            localStorage.setItem("mood_draft", this.value);
+            var c = $el("char-cnt"); if (c) c.textContent = this.value.length;
+        };
+    }
     // Image
     var imgFile = null, btnImg = $el("btn-img"), imgInput = $el("img-input");
     if (btnImg&&imgInput) { btnImg.onclick = function() { imgInput.click(); }; imgInput.onchange = function() { imgFile = this.files[0]; var pv = $el("img-preview"); if(!pv) return; if(imgFile) { var url = URL.createObjectURL(imgFile); pv.innerHTML = '<div class="image-preview-wrap"><img src="'+url+'"><button class="remove-img" id="rm-img">✕</button></div>'; var rm=$el("rm-img"); if(rm)rm.onclick=function(){imgFile=null;pv.innerHTML="";imgInput.value="";}; } }; }
     // Submit
     var bs = $el("btn-sub");
-    if (bs) bs.onclick = async function() { var ta=$el("mood-textarea"); if(!ta)return; var content=ta.value.trim(); if(!content){toast("请写下心情描述",true);return;} var fd=new FormData(); fd.append("mood",selMood);fd.append("content",content);fd.append("tags","");fd.append("is_private",isPrivate?"true":"false"); if(imgFile)fd.append("image",imgFile); bs.disabled=true;bs.textContent="发布中..."; try{await API.createMood(fd);toast("✨ 心情已记录！");ta.value="";var cc=$el("char-cnt");if(cc)cc.textContent="0";var pv=$el("img-preview");if(pv)pv.innerHTML="";if(imgInput)imgInput.value="";imgFile=null;feedPage=1;loadFeed();}catch(e){toast(e.message,true);}bs.disabled=false;bs.textContent="发布"; };
+    if (bs) bs.onclick = async function() { var ta=$el("mood-textarea"); if(!ta)return; var content=ta.value.trim(); if(!content){toast("请写下心情描述",true);return;} var fd=new FormData(); fd.append("mood",selMood);fd.append("content",content);fd.append("tags","");fd.append("is_private",isPrivate?"true":"false"); if(imgFile)fd.append("image",imgFile); bs.disabled=true;bs.textContent="发布中..."; try{await API.createMood(fd);toast("✨ 心情已记录！");ta.value="";localStorage.removeItem("mood_draft");var cc=$el("char-cnt");if(cc)cc.textContent="0";var pv=$el("img-preview");if(pv)pv.innerHTML="";if(imgInput)imgInput.value="";imgFile=null;feedPage=1;loadFeed();loadOnThisDay();}catch(e){toast(e.message,true);}bs.disabled=false;bs.textContent="发布"; };
     // Tabs
     var tabs = document.querySelectorAll("#feed-tabs .feed-tab");
     for (var i=0;i<tabs.length;i++) tabs[i].onclick = function() { var all=document.querySelectorAll("#feed-tabs .feed-tab"); for(var j=0;j<all.length;j++)all[j].classList.remove("active");this.classList.add("active");feedMode=this.getAttribute("data-mode");feedPage=1;feedMore=true;loadFeed(); };
     loadFeed();
+    loadOnThisDay();
     window.onscroll = function() { if(feedBusy||!feedMore||curView!=="feed")return; if(document.documentElement.scrollHeight-window.scrollY-window.innerHeight<300){feedPage++;loadFeed(true);} };
 }
 
 function skeletonHTML() { var h=""; for(var i=0;i<4;i++)h+='<div class="skeleton-card"><div class="sk-header"><div class="skeleton sk-avatar"></div><div><div class="skeleton sk-line" style="width:120px"></div><div class="skeleton sk-line sk-line-short" style="width:80px;margin-top:4px"></div></div></div><div class="skeleton sk-line sk-line-full" style="margin-top:12px"></div><div class="skeleton sk-line sk-line-short"></div></div>'; return h; }
 
 async function loadFeed(append) { if(feedBusy)return;feedBusy=true;var list=$el("feed-list"),loader=$el("feed-loader");if(!list){feedBusy=false;return;}if(!append)list.innerHTML=skeletonHTML();else if(loader)loader.style.display="block";try{var data=feedMode==="friends"?await API.getFriendsMoods(feedPage):await API.getMoods(feedPage);var h="";for(var i=0;i<data.records.length;i++)h+=moodCard(data.records[i],data.records[i].user_id===(API.user?API.user.id:-1));if(append)list.insertAdjacentHTML("beforeend",h);else list.innerHTML=data.records.length===0?'<div class="empty-state"><div class="icon">📝</div><h3>还没有心情记录</h3><p>'+(feedMode==="friends"?"添加好友后查看他们的心情":"写下第一条心情，开始记录吧")+'</p></div>':h;feedMore=data.page<data.pages;if(!feedMore&&!append&&data.records.length>0)list.insertAdjacentHTML("beforeend",'<div class="empty-state" style="padding:20px"><p style="color:var(--text-secondary)">— 已经到底了 —</p></div>');}catch(e){if(!append)list.innerHTML='<div class="empty-state"><div class="icon">⚠️</div><p>'+esc(e.message)+'</p></div>';}if(loader)loader.style.display="none";feedBusy=false;}
+
+async function loadOnThisDay() {
+    if (!API.token) return;
+    var el = $el("onthisday"); if (!el) return;
+    try {
+        var records = await API.getOnThisDay();
+        if (!records.length) { el.style.display = "none"; return; }
+        el.style.display = "block";
+        el.innerHTML =
+            '<div class="onthisday-banner" style="padding:12px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light)">' +
+            '<div style="font-weight:600;font-size:14px;color:var(--primary)">📅 那年今日</div>' +
+            '<div style="margin-top:6px">' +
+            records.map(function(r) {
+                var year = new Date(r.created_at).getFullYear();
+                var m = MOODS[r.mood] || { emoji: "❓", name: r.mood };
+                return '<div style="padding:4px 0;font-size:13px;color:var(--text-secondary)">' +
+                    '<span style="color:var(--text)">' + year + '年</span> ' + m.emoji + ' ' + esc(r.content).substring(0, 40) + (r.content.length > 40 ? '...' : '') + '</div>';
+            }).join("") + '</div></div>';
+    } catch(e) { el.style.display = "none"; }
+}
 
 /* ==================== Friends ==================== */
 function renderFriends(app) { app.innerHTML = '<div class="page-header">👥 好友</div><div id="frd-ctn">'+skeletonHTML()+'</div>'; loadFriends(); }

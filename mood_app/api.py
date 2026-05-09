@@ -427,6 +427,22 @@ def remove_friend(friend_id):
     return jsonify({"message": "已删除好友"})
 
 
+# ==================== On This Day ====================
+
+@api_bp.route("/api/moods/onthisday", methods=["GET"])
+@jwt_required()
+def on_this_day():
+    user_id = int(get_jwt_identity())
+    today = datetime.now(timezone.utc)
+    records = MoodRecord.query.filter(
+        MoodRecord.user_id == user_id,
+        db.extract("month", MoodRecord.created_at) == today.month,
+        db.extract("day", MoodRecord.created_at) == today.day,
+        MoodRecord.created_at < today.replace(hour=0, minute=0, second=0, microsecond=0),
+    ).order_by(MoodRecord.created_at.desc()).limit(10).all()
+    return jsonify([r.to_dict() for r in records])
+
+
 # ==================== Uploads ====================
 
 @api_bp.route("/api/uploads/<filename>")
