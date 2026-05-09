@@ -643,14 +643,22 @@ async function loadFamilyDetail(groupId) {
 }
 
 /* ==================== Profile ==================== */
-function renderProfile(app, userId) {
-    app.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
-    loadProfile(userId);
+function myUserId() {
+    return API.user ? API.user.id : null;
 }
 
-async function loadProfile(userId) {
+function renderProfile(app, userId) {
+    // Always use the logged-in user's ID for "my profile"
+    // If no userId provided or userId matches current user, it's "my profile"
+    const selfId = myUserId();
+    const effectiveUserId = userId || selfId;
+    const isSelf = selfId && String(selfId) === String(effectiveUserId);
+    app.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
+    loadProfile(effectiveUserId, isSelf);
+}
+
+async function loadProfile(userId, isSelf) {
     const app = document.getElementById("app");
-    const isSelf = API.user && API.user.id === userId;
     try {
         const [profile, moodsData] = await Promise.all([
             API.getProfile(userId),
@@ -660,9 +668,13 @@ async function loadProfile(userId) {
 
         const moodHtml = moodsData.records.length === 0
             ? `<div class="empty-state"><div class="icon">📭</div><p>还没有心情记录</p></div>`
-            : moodsData.records.map(r => moodCardHTML(r, r.user_id === API.user?.id)).join("");
+            : moodsData.records.map(r => moodCardHTML(r, String(r.user_id) === String(myUserId()))).join("");
 
         app.innerHTML = `
+            <div class="page-header" style="font-size:18px;font-weight:700;padding:16px 18px">
+                ${isSelf ? '👤 我的主页' : `👤 ${esc(profile.username)} 的主页`}
+                ${!isSelf ? `<span style="font-size:13px;font-weight:400;color:var(--text-secondary);float:right;cursor:pointer" onclick="navigate('profile',{userId:${myUserId()}})">← 返回我的主页</span>` : ''}
+            </div>
             <div class="profile-cover"></div>
             <div class="profile-info">
                 <div class="profile-avatar-lg ${ava}">${esc(profile.username[0].toUpperCase())}</div>
@@ -685,16 +697,20 @@ async function loadProfile(userId) {
         `;
 
         if (isSelf) {
-            document.getElementById("btn-edit-profile").onclick = () => showEditProfileModal(profile);
+            const editBtn = document.getElementById("btn-edit-profile");
+            if (editBtn) editBtn.onclick = () => showEditProfileModal(profile);
         } else {
-            document.getElementById("btn-add-friend").onclick = async () => {
-                try {
-                    const res = await API.sendFriendRequest(userId);
-                    toast(res.message);
-                    document.getElementById("btn-add-friend").textContent = "✓ 已发送";
-                    document.getElementById("btn-add-friend").disabled = true;
-                } catch (e) { toast(e.message, true); }
-            };
+            const addBtn = document.getElementById("btn-add-friend");
+            if (addBtn) {
+                addBtn.onclick = async () => {
+                    try {
+                        const res = await API.sendFriendRequest(userId);
+                        toast(res.message);
+                        addBtn.textContent = "✓已发送";
+                        addBtn.disabled = true;
+                    } catch (e) { toast(e.message, true); }
+                };
+            }
         }
     } catch (e) {
         app.innerHTML = `<div class="empty-state"><p>加载失败：${esc(e.message)}</p></div>`;
