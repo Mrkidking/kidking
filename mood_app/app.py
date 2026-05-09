@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template
 from flask_cors import CORS
+from sqlalchemy import text
 from flask_jwt_extended import JWTManager
 from config import Config
 from models import db
@@ -31,6 +32,16 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+               try:
+            db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'purple'"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            db.session.execute(text("ALTER TABLE mood_record ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     return app
 
