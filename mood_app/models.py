@@ -10,6 +10,8 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     bio = db.Column(db.String(200), default="")
+    avatar_emoji = db.Column(db.String(10), default="")
+    avatar_color = db.Column(db.String(20), default="purple")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     records = db.relationship("MoodRecord", back_populates="author", lazy="dynamic",
@@ -20,6 +22,8 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "bio": self.bio,
+            "avatar_emoji": self.avatar_emoji,
+            "avatar_color": self.avatar_color,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -94,7 +98,6 @@ class FamilyMember(db.Model):
 
     group = db.relationship("FamilyGroup", back_populates="members")
     user = db.relationship("User")
-
     __table_args__ = (db.UniqueConstraint("group_id", "user_id"),)
 
     def to_dict(self):
@@ -111,40 +114,37 @@ class FriendRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     receiver_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    status = db.Column(db.String(20), default="pending")  # pending, accepted, rejected
+    status = db.Column(db.String(20), default="pending")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     sender = db.relationship("User", foreign_keys=[sender_id])
     receiver = db.relationship("User", foreign_keys=[receiver_id])
-
     __table_args__ = (db.UniqueConstraint("sender_id", "receiver_id"),)
 
     @staticmethod
-    def are_friends(user_id_a, user_id_b):
+    def are_friends(a, b):
         return FriendRequest.query.filter(
             db.or_(
-                db.and_(FriendRequest.sender_id == user_id_a,
-                        FriendRequest.receiver_id == user_id_b,
+                db.and_(FriendRequest.sender_id == a, FriendRequest.receiver_id == b,
                         FriendRequest.status == "accepted"),
-                db.and_(FriendRequest.sender_id == user_id_b,
-                        FriendRequest.receiver_id == user_id_a,
+                db.and_(FriendRequest.sender_id == b, FriendRequest.receiver_id == a,
                         FriendRequest.status == "accepted"),
             )
         ).first() is not None
 
     @staticmethod
-    def friend_count(user_id):
-        sent = FriendRequest.query.filter_by(sender_id=user_id, status="accepted").count()
-        received = FriendRequest.query.filter_by(receiver_id=user_id, status="accepted").count()
-        return sent + received
+    def friend_count(uid):
+        s = FriendRequest.query.filter_by(sender_id=uid, status="accepted").count()
+        r = FriendRequest.query.filter_by(receiver_id=uid, status="accepted").count()
+        return s + r
 
     @staticmethod
-    def friend_ids(user_id):
+    def friend_ids(uid):
         sent = [r.receiver_id for r in
-                FriendRequest.query.filter_by(sender_id=user_id, status="accepted").all()]
-        received = [r.sender_id for r in
-                    FriendRequest.query.filter_by(receiver_id=user_id, status="accepted").all()]
-        return list(set(sent + received))
+                FriendRequest.query.filter_by(sender_id=uid, status="accepted").all()]
+        recv = [r.sender_id for r in
+                FriendRequest.query.filter_by(receiver_id=uid, status="accepted").all()]
+        return list(set(sent + recv))
 
     def to_dict(self):
         return {

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from models import db, User
@@ -52,12 +52,38 @@ def update_profile():
     data = request.get_json()
     if not data:
         return jsonify({"error": "请提供更新内容"}), 400
-    bio = data.get("bio", "").strip()
-    if len(bio) > 200:
-        return jsonify({"error": "简介不能超过200字"}), 400
-    user.bio = bio
+
+    if "username" in data:
+        new_username = data["username"].strip()
+        if not new_username or len(new_username) < 2:
+            return jsonify({"error": "用户名至少2个字符"}), 400
+        if len(new_username) > 20:
+            return jsonify({"error": "用户名最多20个字符"}), 400
+        existing = User.query.filter_by(username=new_username).first()
+        if existing and existing.id != user_id:
+            return jsonify({"error": "用户名已被占用"}), 409
+        user.username = new_username
+
+    if "bio" in data:
+        bio = data["bio"].strip()
+        if len(bio) > 200:
+            return jsonify({"error": "简介不能超过200字"}), 400
+        user.bio = bio
+
+    if "avatar_emoji" in data:
+        emoji = data["avatar_emoji"].strip()
+        if len(emoji) > 10:
+            return jsonify({"error": "头像表情过长"}), 400
+        user.avatar_emoji = emoji
+
+    if "avatar_color" in data:
+        color = data["avatar_color"].strip()
+        if color not in current_app.config["AVATAR_COLORS"]:
+            return jsonify({"error": "无效的颜色"}), 400
+        user.avatar_color = color
+
     db.session.commit()
-    return jsonify({"message": "更新成功", "user": user.profile_dict()})
+    return jsonify({"message": "资料已更新", "user": user.to_dict()})
 
 
 @auth_bp.route("/api/profile/<int:user_id>", methods=["GET"])

@@ -415,14 +415,37 @@ a:hover { text-decoration: underline; }
     flex-shrink: 0;
     cursor: pointer;
 }
-.avatar-0 { background: linear-gradient(135deg, #6366f1, #818cf8); }
-.avatar-1 { background: linear-gradient(135deg, #ec4899, #f472b6); }
-.avatar-2 { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-.avatar-3 { background: linear-gradient(135deg, #10b981, #34d399); }
-.avatar-4 { background: linear-gradient(135deg, #ef4444, #f87171); }
-.avatar-5 { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
-.avatar-6 { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
-.avatar-7 { background: linear-gradient(135deg, #f97316, #fb923c); }
+/* Avatar color presets */
+.avatar-purple { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.avatar-pink   { background: linear-gradient(135deg, #ec4899, #f472b6); }
+.avatar-orange { background: linear-gradient(135deg, #f97316, #fb923c); }
+.avatar-green  { background: linear-gradient(135deg, #10b981, #34d399); }
+.avatar-red    { background: linear-gradient(135deg, #ef4444, #f87171); }
+.avatar-indigo { background: linear-gradient(135deg, #6366f1, #818cf8); }
+.avatar-cyan   { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+.avatar-amber  { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+
+/* Password toggle */
+.pw-wrap { position: relative; display: flex; align-items: center; }
+.pw-wrap input { flex: 1; }
+.pw-toggle { position: absolute; right: 12px; cursor: pointer; font-size: 16px; user-select: none; opacity: 0.7; z-index: 2; }
+.pw-toggle:hover { opacity: 1; }
+
+/* Color & emoji pickers */
+.color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-option { width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: var(--transition); }
+.color-option:hover { transform: scale(1.15); }
+.color-option.selected { border-color: var(--text); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--text); }
+
+.emoji-picker { display: flex; gap: 6px; flex-wrap: wrap; max-height: 160px; overflow-y: auto; }
+.emoji-option { font-size: 24px; cursor: pointer; padding: 4px; border-radius: 8px; border: 2px solid transparent; transition: var(--transition); }
+.emoji-option:hover { background: var(--hover-bg); }
+.emoji-option.selected { border-color: var(--primary); background: var(--primary-bg); }
+
+/* Fix avatar-sm for color classes */
+.avatar-sm.avatar-purple, .avatar-sm.avatar-pink, .avatar-sm.avatar-orange,
+.avatar-sm.avatar-green, .avatar-sm.avatar-red, .avatar-sm.avatar-indigo,
+.avatar-sm.avatar-cyan, .avatar-sm.avatar-amber { color: #fff; }
 
 .mood-card-header .header-info { flex: 1; min-width: 0; }
 .mood-card-header .header-row {
