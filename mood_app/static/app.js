@@ -253,7 +253,7 @@ function renderFeed(app) {
         '<div class="private-toggle" id="private-toggle" title="仅自己可见"><span class="toggle-switch" id="toggle-switch"></span>🔒 私密</div>' +
         '<span class="char-count"><span id="char-cnt">0</span>/500</span></div>' +
         '<button class="btn btn-primary btn-sm" id="btn-sub">发布</button></div></div>' +
-        '<div id="feed-list">'+skeletonHTML()+'</div><div id="feed-loader" style="display:none"><div class="spinner"></div></div>';
+        (isGuest?renderGuestBanner():"") + '<div id="feed-list">'+skeletonHTML()+'</div><div id="feed-loader" style="display:none"><div class="spinner"></div></div>';
 
     var selMood = "happy", isPrivate = false;
     // Mood selector
