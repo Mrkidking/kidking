@@ -3,14 +3,14 @@ const API = {
     token: localStorage.getItem("token") || null,
     user: (() => { try { return JSON.parse(localStorage.getItem("user")); } catch { return null; } })(),
 
-    headers(auth = true) {
+    headers() {
         const h = {};
-        if (auth && this.token) h["Authorization"] = `Bearer ${this.token}`;
+        if (this.token) h["Authorization"] = `Bearer ${this.token}`;
         return h;
     },
 
     async request(method, url, body = null, isForm = false) {
-        const opts = { method, headers: this.headers(!isForm) };
+        const opts = { method, headers: this.headers() };
         if (isForm) { opts.body = body; }
         else if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
         const res = await fetch(url, opts);
