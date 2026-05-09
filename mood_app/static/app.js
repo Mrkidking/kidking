@@ -68,6 +68,7 @@ if (API.user && API.user.theme) applyTheme(API.user.theme);
 
 /* ==================== Navigation ==================== */
 var curView = "", curData = {};
+var navHistory = [];
 
 function updateSidebar() {
     var nav = $el("sidebar-nav"), userDiv = $el("sidebar-user"), postBtn = $el("sidebar-post-btn");
@@ -97,8 +98,29 @@ function updateSidebar() {
     }
 }
 
+function goBack() {
+    if (navHistory.length > 0) {
+        var prev = navHistory[navHistory.length - 1];
+        // Remove last 2 entries (current page + the target we're going back to)
+        navHistory.pop();
+        // Navigate without adding to history
+        curView = prev.view; curData = prev.data; window.onscroll = null;
+        _doNav(prev.view, prev.data);
+        return;
+    }
+    navigate("feed");
+}
+
 function navigate(view, data) {
+    if (curView && curView !== "welcome" && curView !== "login") {
+        navHistory.push({ view: curView, data: curData });
+        if (navHistory.length > 50) navHistory.shift();
+    }
     curView = view; curData = data || {}; window.onscroll = null;
+    _doNav(view, data);
+}
+
+function _doNav(view, data) {
     // Desktop sidebar active
     var links = document.querySelectorAll(".sidebar-nav a");
     for (var i = 0; i < links.length; i++) links[i].classList.remove("active");
@@ -388,7 +410,7 @@ document.addEventListener("keydown", function(e) {
 
 // Guest mode - browse without login
 function renderGuestBanner() {
-    return '<div style="padding:10px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--text-sm);flex-wrap:wrap">' +
+    return '<div style="padding:10px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--text-sm);flex-wrap:wrap">' + '<button class="btn btn-outline btn-sm" onclick="goBack()" style="min-width:60px">← 返回</button>' +
         '<span>👀 <b>游客模式</b> · 只能浏览</span>' +
         '<span style="display:flex;gap:8px">' +
         '<a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(&#39;welcome&#39;)">← 回到首页</a>' +
