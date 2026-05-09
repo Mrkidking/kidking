@@ -149,7 +149,6 @@ def get_stats():
 @api_bp.route("/api/stats/weekly", methods=["GET"])
 @jwt_required()
 def get_weekly_stats():
-    from datetime import timedelta
     user_id = int(get_jwt_identity())
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     records = MoodRecord.query.filter(
