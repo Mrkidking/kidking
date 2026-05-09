@@ -64,3 +64,31 @@ def update_profile():
 def get_profile(user_id):
     user = User.query.get_or_404(user_id)
     return jsonify(user.profile_dict())
+
+
+@auth_bp.route("/api/password", methods=["PUT"])
+@jwt_required()
+def change_password():
+    user_id = int(get_jwt_identity())
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请提供密码信息"}), 400
+    old_pw = data.get("old_password", "")
+    new_pw = data.get("new_password", "")
+    if not check_password_hash(user.password_hash, old_pw):
+        return jsonify({"error": "原密码错误"}), 400
+    if len(new_pw) < 4:
+        return jsonify({"error": "新密码至少4个字符"}), 400
+    user.password_hash = generate_password_hash(new_pw)
+    db.session.commit()
+    return jsonify({"message": "密码修改成功"})
+
+
+@auth_bp.route("/api/users/search", methods=["GET"])
+def search_users():
+    q = request.args.get("q", "").strip()
+    if not q or len(q) < 1:
+        return jsonify([])
+    users = User.query.filter(User.username.contains(q)).limit(20).all()
+    return jsonify([u.to_dict() for u in users])
