@@ -95,9 +95,6 @@ function updateSidebar() {
         if (postBtn) postBtn.style.display = "none";
         nav.innerHTML = ""; userDiv.innerHTML = "";
     }
-    // Mobile nav
-    var mn = $el("mobile-nav");
-    if (mn) mn.style.display = (API.token && API.user) ? "flex" : "none";
 }
 
 function navigate(view, data) {
@@ -368,7 +365,7 @@ function init() {
         })(mlinks[i].getAttribute("data-view"));
     }
     if (API.token && API.user) { navigate("feed"); }
-    else { navigate("feed"); $el("mobile-nav").style.display = "none"; }
+    else { navigate("feed"); }
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 else init();
