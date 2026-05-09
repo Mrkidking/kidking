@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心情日记 — 记录每一刻</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar-left" id="sidebar-left">
+            <div class="sidebar-logo" onclick="navigate('feed')">🌈 心情日记</div>
+            <nav class="sidebar-nav" id="sidebar-nav"></nav>
+            <button class="btn btn-primary btn-lg sidebar-post-btn" id="sidebar-post-btn" style="display:none">✨ 发布心情</button>
+            <div class="sidebar-user" id="sidebar-user"></div>
+        </aside>
+
+        <main class="main-content" id="main-content">
+            <div id="app"></div>
+        </main>
+
+        <aside class="sidebar-right" id="sidebar-right">
+            <div id="right-panel"></div>
+        </aside>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay" style="display:none">
+        <div class="modal" id="modal-content"></div>
+    </div>
+
+    <div class="image-viewer" id="image-viewer" style="display:none">
+        <span class="image-viewer-close" onclick="closeImageViewer()">&times;</span>
+        <img id="image-viewer-img" src="" alt="预览">
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

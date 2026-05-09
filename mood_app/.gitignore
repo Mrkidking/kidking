@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+mood.db
+static/uploads/*
+!static/uploads/.gitkeep
+.env
