@@ -25,6 +25,10 @@ def create_app():
     def index():
         return render_template("index.html")
 
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template("404.html"), 404
+
     with app.app_context():
         db.create_all()
 

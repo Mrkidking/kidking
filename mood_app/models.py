@@ -12,6 +12,7 @@ class User(db.Model):
     bio = db.Column(db.String(200), default="")
     avatar_emoji = db.Column(db.String(10), default="")
     avatar_color = db.Column(db.String(20), default="purple")
+    theme = db.Column(db.String(20), default="purple")  # purple, warm, ocean, forest, sunset
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     records = db.relationship("MoodRecord", back_populates="author", lazy="dynamic",
@@ -19,12 +20,9 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "username": self.username,
-            "bio": self.bio,
-            "avatar_emoji": self.avatar_emoji,
-            "avatar_color": self.avatar_color,
-            "created_at": self.created_at.isoformat(),
+            "id": self.id, "username": self.username, "bio": self.bio,
+            "avatar_emoji": self.avatar_emoji, "avatar_color": self.avatar_color,
+            "theme": self.theme, "created_at": self.created_at.isoformat(),
         }
 
     def profile_dict(self):
@@ -46,19 +44,18 @@ class MoodRecord(db.Model):
     content = db.Column(db.Text, nullable=False)
     tags = db.Column(db.String(200), default="")
     image = db.Column(db.String(300), default="")
+    is_private = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     author = db.relationship("User", back_populates="records")
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "user_id": self.user_id,
+            "id": self.id, "user_id": self.user_id,
             "username": self.author.username,
-            "mood": self.mood,
-            "content": self.content,
+            "mood": self.mood, "content": self.content,
             "tags": [t.strip() for t in self.tags.split(",") if t.strip()],
-            "image": self.image,
+            "image": self.image, "is_private": self.is_private,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -78,11 +75,8 @@ class FamilyGroup(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "invite_code": self.invite_code,
-            "creator_id": self.creator_id,
+            "id": self.id, "name": self.name, "description": self.description,
+            "invite_code": self.invite_code, "creator_id": self.creator_id,
             "creator_name": self.creator.username,
             "member_count": self.members.count(),
             "created_at": self.created_at.isoformat(),
@@ -102,8 +96,7 @@ class FamilyMember(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "user_id": self.user_id,
+            "id": self.id, "user_id": self.user_id,
             "username": self.user.username,
             "joined_at": self.joined_at.isoformat(),
         }
@@ -123,14 +116,12 @@ class FriendRequest(db.Model):
 
     @staticmethod
     def are_friends(a, b):
-        return FriendRequest.query.filter(
-            db.or_(
-                db.and_(FriendRequest.sender_id == a, FriendRequest.receiver_id == b,
-                        FriendRequest.status == "accepted"),
-                db.and_(FriendRequest.sender_id == b, FriendRequest.receiver_id == a,
-                        FriendRequest.status == "accepted"),
-            )
-        ).first() is not None
+        return FriendRequest.query.filter(db.or_(
+            db.and_(FriendRequest.sender_id == a, FriendRequest.receiver_id == b,
+                    FriendRequest.status == "accepted"),
+            db.and_(FriendRequest.sender_id == b, FriendRequest.receiver_id == a,
+                    FriendRequest.status == "accepted"),
+        )).first() is not None
 
     @staticmethod
     def friend_count(uid):
@@ -148,11 +139,9 @@ class FriendRequest(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "sender_id": self.sender_id,
+            "id": self.id, "sender_id": self.sender_id,
             "sender_name": self.sender.username,
             "receiver_id": self.receiver_id,
             "receiver_name": self.receiver.username,
-            "status": self.status,
-            "created_at": self.created_at.isoformat(),
+            "status": self.status, "created_at": self.created_at.isoformat(),
         }

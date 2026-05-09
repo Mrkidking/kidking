@@ -1,0 +1,14 @@
+{
+  "name": "心情日记 - 记录每一刻",
+  "short_name": "心情日记",
+  "description": "记录每天的心情，和朋友分享",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f7fc",
+  "theme_color": "#7c3aed",
+  "icons": [{
+    "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌈</text></svg>",
+    "sizes": "100x100",
+    "type": "image/svg+xml"
+  }]
+}

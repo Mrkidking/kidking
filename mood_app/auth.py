@@ -82,6 +82,12 @@ def update_profile():
             return jsonify({"error": "无效的颜色"}), 400
         user.avatar_color = color
 
+    if "theme" in data:
+        theme = data["theme"].strip()
+        if theme not in ("purple", "warm", "ocean", "forest", "sunset"):
+            return jsonify({"error": "无效的主题"}), 400
+        user.theme = theme
+
     db.session.commit()
     return jsonify({"message": "资料已更新", "user": user.to_dict()})
 

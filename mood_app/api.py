@@ -30,6 +30,7 @@ def create_mood():
     mood = request.form.get("mood", "").strip()
     content = request.form.get("content", "").strip()
     tags = request.form.get("tags", "")
+    is_private = request.form.get("is_private", "false").lower() == "true"
     image = ""
 
     if mood not in MoodRecord.MOOD_CHOICES:
@@ -45,7 +46,8 @@ def create_mood():
         if not image and file.filename:
             return jsonify({"error": "图片格式不支持（支持 png/jpg/jpeg/gif/webp）"}), 400
 
-    record = MoodRecord(user_id=user_id, mood=mood, content=content, tags=tags, image=image)
+    record = MoodRecord(user_id=user_id, mood=mood, content=content, tags=tags,
+                        is_private=is_private, image=image)
     db.session.add(record)
     db.session.commit()
     return jsonify({"message": "记录成功", "record": record.to_dict()}), 201
@@ -58,7 +60,7 @@ def get_all_moods():
     per_page = min(per_page, 50)
     mood_filter = request.args.get("mood", "").strip()
 
-    query = MoodRecord.query
+    query = MoodRecord.query.filter_by(is_private=False)
     if mood_filter and mood_filter in MoodRecord.MOOD_CHOICES:
         query = query.filter_by(mood=mood_filter)
 
@@ -123,23 +125,62 @@ def delete_mood(record_id):
 
 @api_bp.route("/api/stats", methods=["GET"])
 def get_stats():
-    total = MoodRecord.query.count()
+    total = MoodRecord.query.filter_by(is_private=False).count()
     user_count = User.query.count()
     mood_counts = db.session.query(
         MoodRecord.mood, func.count(MoodRecord.id)
-    ).group_by(MoodRecord.mood).all()
+    ).filter_by(is_private=False).group_by(MoodRecord.mood).all()
     distribution = {mood: 0 for mood in MoodRecord.MOOD_CHOICES}
     for mood, count in mood_counts:
         distribution[mood] = count
     top_users = db.session.query(
         User.username, func.count(MoodRecord.id).label("cnt")
-    ).join(MoodRecord).group_by(User.id).order_by(
+    ).join(MoodRecord).filter_by(is_private=False).group_by(User.id).order_by(
         func.count(MoodRecord.id).desc()).limit(5).all()
     return jsonify({
         "total_records": total,
         "total_users": user_count,
         "mood_distribution": distribution,
         "top_users": [{"username": u, "count": c} for u, c in top_users],
+    })
+
+
+@api_bp.route("/api/stats/weekly", methods=["GET"])
+@jwt_required()
+def get_weekly_stats():
+    from datetime import timedelta
+    user_id = int(get_jwt_identity())
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    records = MoodRecord.query.filter(
+        MoodRecord.user_id == user_id,
+        MoodRecord.created_at >= week_ago,
+    ).order_by(MoodRecord.created_at.asc()).all()
+
+    days = []
+    for i in range(6, -1, -1):
+        day = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%m-%d")
+        days.append({"date": day, "mood": None, "emoji": ""})
+
+    mood_emojis = {
+        "happy": "😊", "calm": "😌", "sad": "😢",
+        "anxious": "😰", "excited": "🤩", "tired": "😴",
+    }
+
+    for r in records:
+        day_str = r.created_at.strftime("%m-%d")
+        for d in days:
+            if d["date"] == day_str:
+                d["mood"] = r.mood
+                d["emoji"] = mood_emojis.get(r.mood, "")
+
+    distribution = {m: 0 for m in MoodRecord.MOOD_CHOICES}
+    for r in records:
+        distribution[r.mood] = distribution.get(r.mood, 0) + 1
+
+    return jsonify({
+        "total_this_week": len(records),
+        "days": days,
+        "distribution": distribution,
     })
 
 
