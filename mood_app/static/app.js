@@ -117,7 +117,8 @@ function navigate(view, data) {
     if (!API.token && guestBlocked.indexOf(view) >= 0) view = "login";
     if (!API.token && view === "profile" && !data.userId) view = "login";
 
-    if (view === "login") { renderAuth(app); renderRight(rp, ""); }
+    if (view === "welcome") { renderWelcome(app); renderRight(rp, ""); }
+    else if (view === "login") { renderAuth(app); renderRight(rp, ""); }
     else if (view === "feed") { renderFeed(app); renderRightDefault(rp); }
     else if (view === "friends") { renderFriends(app); renderRight(rp, ""); }
     else if (view === "families") { renderFamilies(app); renderRight(rp, ""); }
@@ -146,6 +147,37 @@ function renderRightSearch(panel) {
         } catch(ee) {} }, 300); };
 }
 async function loadRightStats() { var e = $el("right-stats"); if (!e) return; try { var d = await API.getStats(); var t=0,ks=Object.keys(d.mood_distribution); for (var i=0;i<ks.length;i++) t+=d.mood_distribution[ks[i]]; if(t===0)t=1; var cols={happy:"#f59e0b",calm:"#6366f1",sad:"#3b82f6",anxious:"#ef4444",excited:"#ec4899",tired:"#8b5cf6"}; var h="",es=Object.entries(d.mood_distribution); for(var i=0;i<es.length;i++){var k=es[i][0],v=es[i][1];h+='<div class="stat-row"><span class="stat-emoji">'+MOODS[k].emoji+'</span><div class="bar-mini"><div class="bar-mini-fill" style="width:'+((v/t)*100).toFixed(1)+'%;background:'+cols[k]+'"></div></div><span style="font-size:13px;width:32px;text-align:right">'+v+'</span></div>';} e.innerHTML = h; } catch(ee) { e.innerHTML=""; } }
+
+
+function renderWelcome(app) {
+    app.innerHTML = '<div class="welcome-container">' +
+        '<div class="welcome-hero">' +
+        '<div class="welcome-logo">🌈</div>' +
+        '<h1 class="welcome-title">心情日记</h1>' +
+        '<p class="welcome-subtitle">记录每一刻，安放每一种心情</p>' +
+        '<div class="welcome-stats" id="welcome-stats"><span>加载中...</span></div>' +
+        '<div class="welcome-actions">' +
+        '<button class="btn btn-primary btn-lg" id="btn-welcome-login" style="min-width:200px;justify-content:center">✨ 登录 / 注册</button>' +
+        '<button class="btn btn-outline btn-lg" id="btn-welcome-guest" style="min-width:200px;justify-content:center">👀 游客浏览</button>' +
+        '</div></div>' +
+        '<div class="welcome-moods" id="welcome-moods"><div class="spinner"></div></div></div>';
+    document.getElementById("btn-welcome-login").onclick = function() { navigate("login"); };
+    document.getElementById("btn-welcome-guest").onclick = function() { navigate("feed"); };
+    // Load stats
+    API.getStats().then(function(d) {
+        var el = document.getElementById("welcome-stats");
+        if (el) el.innerHTML = "<span>📝 " + d.total_records + " 条心情</span><span style=\"margin-left:16px\">👥 " + d.total_users + " 位伙伴</span>";
+    }).catch(function() {});
+    // Load recent public moods
+    API.getMoods(1).then(function(d) {
+        var el = document.getElementById("welcome-moods");
+        if (!el) return;
+        if (!d.records.length) { el.innerHTML = ""; return; }
+        var h = '<h3 style="font-size:var(--text-sm);color:var(--text-secondary);text-align:center;margin-bottom:12px">📮 最近的心情</h3>';
+        for (var i = 0; i < Math.min(d.records.length, 5); i++) h += moodCard(d.records[i], false);
+        el.innerHTML = h;
+    }).catch(function() {});
+}
 
 /* ==================== Auth ==================== */
 function renderAuth(app) { var mode="login";
@@ -356,8 +388,12 @@ document.addEventListener("keydown", function(e) {
 
 // Guest mode - browse without login
 function renderGuestBanner() {
-    return '<div style="padding:12px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);text-align:center;font-size:var(--text-sm)">' +
-        '👋 你正在以游客身份浏览 · <a style="color:var(--primary);font-weight:600;cursor:pointer" onclick="navigate(\'login\')">登录</a> 或 <a style="color:var(--primary);font-weight:600;cursor:pointer" onclick="navigate(\'login\')">注册</a> 加入心情日记</div>';
+    return '<div style="padding:10px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--text-sm);flex-wrap:wrap">' +
+        '<span>👀 <b>游客模式</b> · 只能浏览</span>' +
+        '<span style="display:flex;gap:8px">' +
+        '<a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(&#39;welcome&#39;)">← 回到首页</a>' +
+        '<a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(&#39;login&#39;)">登录</a>' +
+        '</span></div>';
 }
 
 function init() {
@@ -369,7 +405,7 @@ function init() {
         })(mlinks[i].getAttribute("data-view"));
     }
     if (API.token && API.user) { navigate("feed"); }
-    else { navigate("feed"); }
+    else { navigate("welcome"); }
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 else init();
