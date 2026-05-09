@@ -13,6 +13,7 @@ def register():
         return jsonify({"error": "请提供注册信息"}), 400
     username = data.get("username", "").strip()
     password = data.get("password", "")
+    confirm = data.get("confirm_password", "")
     if not username or not password:
         return jsonify({"error": "用户名和密码不能为空"}), 400
     if len(username) < 2:
@@ -21,6 +22,8 @@ def register():
         return jsonify({"error": "用户名最多20个字符"}), 400
     if len(password) < 4:
         return jsonify({"error": "密码至少4个字符"}), 400
+    if confirm and password != confirm:
+        return jsonify({"error": "两次密码不一致"}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "用户名已存在"}), 409
     user = User(username=username, password_hash=generate_password_hash(password))

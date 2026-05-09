@@ -443,6 +443,35 @@ def on_this_day():
     return jsonify([r.to_dict() for r in records])
 
 
+# ==================== Streak ====================
+
+@api_bp.route("/api/stats/streak", methods=["GET"])
+@jwt_required()
+def get_streak():
+    from sqlalchemy import distinct, cast, Date
+    user_id = int(get_jwt_identity())
+    # Get distinct dates the user posted
+    dates = db.session.query(
+        distinct(cast(MoodRecord.created_at, Date))
+    ).filter(MoodRecord.user_id == user_id).order_by(
+        cast(MoodRecord.created_at, Date).desc()
+    ).limit(366).all()
+    date_list = [d[0] for d in dates]
+    if not date_list:
+        return jsonify({"streak": 0, "total_days": 0})
+    # Count consecutive days from today backwards
+    today = datetime.now(timezone.utc).date()
+    streak = 0
+    check = today
+    for d in date_list:
+        if d == check or d == check - timedelta(days=1):
+            streak += 1
+            check = d
+        else:
+            break
+    return jsonify({"streak": streak, "total_days": len(date_list)})
+
+
 # ==================== Uploads ====================
 
 @api_bp.route("/api/uploads/<filename>")
