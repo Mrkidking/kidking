@@ -472,6 +472,54 @@ def get_streak():
     return jsonify({"streak": streak, "total_days": len(date_list)})
 
 
+# ==================== Search & Export ====================
+
+@api_bp.route("/api/moods/search", methods=["GET"])
+@jwt_required()
+def search_moods():
+    user_id = int(get_jwt_identity())
+    q = request.args.get("q", "").strip()
+    mood = request.args.get("mood", "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 30, type=int), 50)
+
+    query = MoodRecord.query.filter_by(user_id=user_id)
+    if q:
+        query = query.filter(MoodRecord.content.contains(q))
+    if mood and mood in MoodRecord.MOOD_CHOICES:
+        query = query.filter_by(mood=mood)
+
+    pagination = query.order_by(MoodRecord.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        "records": [r.to_dict() for r in pagination.items],
+        "total": pagination.total, "pages": pagination.pages, "page": page,
+    })
+
+
+@api_bp.route("/api/moods/export", methods=["GET"])
+@jwt_required()
+def export_moods():
+    user_id = int(get_jwt_identity())
+    records = MoodRecord.query.filter_by(user_id=user_id).order_by(
+        MoodRecord.created_at.asc()).all()
+    mood_names = {
+        "happy": "开心", "calm": "平静", "sad": "难过", "anxious": "焦虑",
+        "excited": "兴奋", "tired": "疲惫", "storm": "暴风雨", "chaos": "泥石流",
+        "void": "虚空", "indescribable": "难以言说", "grateful": "感恩", "nostalgic": "怀旧",
+    }
+    data = []
+    for r in records:
+        data.append({
+            "date": r.created_at.strftime("%Y-%m-%d %H:%M"),
+            "mood": mood_names.get(r.mood, r.mood),
+            "content": r.content,
+            "tags": [t.strip() for t in r.tags.split(",") if t.strip()],
+            "private": r.is_private,
+        })
+    return jsonify({"count": len(data), "records": data})
+
+
 # ==================== Uploads ====================
 
 @api_bp.route("/api/uploads/<filename>")

@@ -120,6 +120,19 @@ def change_password():
     return jsonify({"message": "密码修改成功"})
 
 
+@auth_bp.route("/api/account", methods=["DELETE"])
+@jwt_required()
+def delete_account():
+    user_id = int(get_jwt_identity())
+    data = request.get_json()
+    if not data or data.get("confirm", "").strip() != "再见":
+        return jsonify({"error": "请输入'再见'确认删除"}), 400
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "你的所有心事都已随风散去。祝你接下来一切安好。"})
+
+
 @auth_bp.route("/api/users/search", methods=["GET"])
 def search_users():
     q = request.args.get("q", "").strip()

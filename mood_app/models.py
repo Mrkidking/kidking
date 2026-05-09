@@ -36,7 +36,8 @@ class User(db.Model):
 
 class MoodRecord(db.Model):
     __tablename__ = "mood_record"
-    MOOD_CHOICES = ["happy", "calm", "sad", "anxious", "excited", "tired"]
+    MOOD_CHOICES = ["happy", "calm", "sad", "anxious", "excited", "tired",
+                    "storm", "chaos", "void", "indescribable", "grateful", "nostalgic"]
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)

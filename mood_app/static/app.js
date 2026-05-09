@@ -23,6 +23,9 @@ var API = {
     getWeeklyStats: function() { return this.request("GET","/api/stats/weekly"); },
     getStreak: function() { return this.request("GET","/api/stats/streak"); },
     getOnThisDay: function() { return this.request("GET","/api/moods/onthisday"); },
+    searchMoods: function(q, mood, pg) { return this.request("GET","/api/moods/search?q="+encodeURIComponent(q||"")+"&mood="+(mood||"")+"&page="+(pg||1)); },
+    exportMoods: function() { return this.request("GET","/api/moods/export"); },
+    deleteAccount: function(c) { return this.request("DELETE","/api/account",{confirm:c}); },
     createFamily: function(n,d) { return this.request("POST","/api/families",{name:n,description:d}); },
     joinFamily: function(c) { return this.request("POST","/api/families/join",{invite_code:c}); },
     getMyFamilies: function() { return this.request("GET","/api/families/my"); },
@@ -39,7 +42,7 @@ var API = {
 };
 
 /* ==================== Constants ==================== */
-var MOODS = { happy:{emoji:"😊",name:"开心"}, calm:{emoji:"😌",name:"平静"}, sad:{emoji:"😢",name:"难过"}, anxious:{emoji:"😰",name:"焦虑"}, excited:{emoji:"🤩",name:"兴奋"}, tired:{emoji:"😴",name:"疲惫"} };
+var MOODS = { happy:{emoji:"😊",name:"开心"}, calm:{emoji:"😌",name:"平静"}, sad:{emoji:"😢",name:"难过"}, anxious:{emoji:"😰",name:"焦虑"}, excited:{emoji:"🤩",name:"兴奋"}, tired:{emoji:"😴",name:"疲惫"}, storm:{emoji:"⛈️",name:"暴风雨"}, chaos:{emoji:"🌪️",name:"泥石流"}, void:{emoji:"🕳️",name:"虚空"}, indescribable:{emoji:"🌫️",name:"难以言说"}, grateful:{emoji:"🙏",name:"感恩"}, nostalgic:{emoji:"🌅",name:"怀旧"} };
 var AVATAR_COLORS = ["purple","pink","orange","green","red","indigo","cyan","amber"];
 var AVATAR_EMOJIS = ["😀","😂","🥰","😎","🤩","🦊","🐱","🐶","🦄","🐼","🌸","⭐","🔥","💜","🌈","🎉","🍀","🌙","☀️","💎"];
 var THEMES = { purple:"🟣紫", warm:"🟠暖阳", ocean:"🔵深海", forest:"🟢森林", sunset:"🔴晚霞" };
@@ -119,7 +122,7 @@ function navigate(view, data) {
     else if (view === "families") { renderFamilies(app); renderRight(rp, ""); }
     else if (view === "family-detail") { renderFamilyDetail(app, data.groupId); renderRight(rp, ""); }
     else if (view === "profile") { renderProfile(app, data.userId || (API.user&&API.user.id)); renderRightSearch(rp); }
-    else if (view === "settings") { renderSettings(app); renderRight(rp, ""); }
+    else if (view === "settings") { renderSettings(app); renderRight(rp, ""); } else if (view === "search") { renderSearchPage(app); renderRight(rp, ""); }
     else if (view === "stats") { renderStats(app); renderRight(rp, ""); }
     else if (view === "post") { navigate("feed"); setTimeout(function() { var t = $el("mood-textarea"); if (t) { t.focus(); window.scrollTo({top:0,behavior:"smooth"}); } }, 100); }
     else { renderFeed(app); renderRightDefault(rp); }
@@ -179,13 +182,13 @@ var feedMode = "all", feedPage = 1, feedMore = true, feedBusy = false;
 
 function renderFeed(app) {
     feedMode = "all"; feedPage = 1; feedMore = true;
-    var color = API.user ? (API.user.avatar_color || avaColor(API.user.username)) : "purple";
+    var isGuest = !API.token; var color = API.user ? (API.user.avatar_color || avaColor(API.user.username)) : "purple";
     var emoji = API.user ? (API.user.avatar_emoji || API.user.username[0].toUpperCase()) : "?";
     var moodOpts = "", ks = Object.keys(MOODS);
     for (var i = 0; i < ks.length; i++) { var k = ks[i]; moodOpts += '<span class="mood-option'+(k==="happy"?" selected":"")+'" data-mood="'+k+'">'+MOODS[k].emoji+' '+MOODS[k].name+'</span>'; }
 
     app.innerHTML =
-        '<div class="feed-tabs" id="feed-tabs"><div class="feed-tab active" data-mode="all">🌍 广场</div><div class="feed-tab" data-mode="friends">👥 好友</div></div>' +
+        '<div class="feed-tabs" id="feed-tabs"><div class="feed-tab active" data-mode="all">🌍 广场</div>'+(isGuest?'':'<div class="feed-tab" data-mode="friends">👥 好友</div>')+'</div>' +
         '<div id="onthisday" style="display:none"></div>' +
         '<div class="create-inline"><div class="create-row"><div class="avatar avatar-'+color+'">'+esc(emoji)+'</div><textarea id="mood-textarea" placeholder="今天心情如何？" maxlength="500"></textarea></div>' +
         '<div class="mood-selector" id="mood-selector">'+moodOpts+'</div><div id="img-preview"></div>' +
@@ -270,7 +273,7 @@ async function loadFamilyDetail(gid) { var app=$el("app");if(!app)return;try{var
 /* ==================== Profile ==================== */
 function renderProfile(app,userId) { var sid=API.user?API.user.id:null,eid=userId||sid,isSelf=sid&&String(sid)===String(eid); app.innerHTML='<div class="page"><div class="spinner"></div></div>'; loadProfile(eid,isSelf); }
 async function loadProfile(uid,isSelf) { var app=$el("app");if(!app)return;try{var p=await API.getProfile(uid),md=await API.getUserMoods(uid,1),wk=isSelf?await API.getWeeklyStats():null,st=isSelf?await API.getStreak():null; var col=p.avatar_color||avaColor(p.username),em=p.avatar_emoji||p.username[0].toUpperCase(); var mh="";if(md.records.length===0)mh='<div class="empty-state"><div class="icon">📭</div><h3>还没有心情记录</h3><p>去广场发布第一条心情吧</p></div>';else for(var i=0;i<md.records.length;i++)mh+=moodCard(md.records[i],String(md.records[i].user_id)===String(API.user?API.user.id:-1)); var streakH = ""; if (st && st.streak > 1) streakH = '<span style="color:var(--accent);margin-left:4px">🔥' + st.streak + '天连续记录</span>'; var bars="";if(st&&st.total_days>0){var maxDays=Math.min(st.total_days,60);for(var i=0;i<maxDays;i++)bars+='<span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin:1px;background:var(--primary);opacity:'+(0.3+0.7*(i/maxDays))+'" title="'+st.total_days+'天"></span>';}
-var weekH="";if(wk){weekH='<div style="margin-bottom:16px"><div style="font-weight:700;font-size:14px;margin-bottom:12px">📈 本周心情 ('+wk.total_this_week+'条)</div><div class="week-grid">';for(var i=0;i<wk.days.length;i++){var d=wk.days[i];weekH+='<div class="week-day'+(d.mood?' has-mood':'')+'"><div class="day-emoji">'+(d.emoji||'·')+'</div><div class="day-date">'+d.date.split('-')[1]+'/'+d.date.split('-')[0]+'</div></div>';}weekH+='</div></div>';} var sid=API.user?API.user.id:null; app.innerHTML='<div class="page-header" style="font-size:18px;font-weight:700;padding:16px 18px">'+(isSelf?'👤 我的主页':'👤 '+esc(p.username)+' 的主页')+(!isSelf?'<span style="font-size:13px;font-weight:400;color:var(--primary);float:right;cursor:pointer" onclick="navigate(\'profile\',{userId:'+sid+'})">← 返回我的主页</span>':"")+'</div><div class="profile-cover"></div><div class="profile-info">'+weekH+'<div class="profile-avatar-lg avatar-'+col+'">'+esc(em)+'</div><div class="profile-name">'+esc(p.username)+streakH+'</div><div class="profile-handle">@'+esc(p.username)+' · '+fmtDate(p.created_at)+'</div><div class="profile-bio">'+esc(p.bio||"这个人很懒，什么都没写")+'</div>'+(bars?'<div style="margin-bottom:8px">'+bars+'</div>':'')+'<div class="profile-stats"><span><strong>'+p.mood_count+'</strong> 心情</span><span><strong>'+p.friend_count+'</strong> 好友</span><span><strong>'+p.family_count+'</strong> 家庭</span></div><div class="profile-actions">'+(isSelf?'<button class="btn btn-outline btn-sm" id="btn-edit">✏️ 编辑资料</button> <button class="btn btn-outline btn-sm" id="btn-settings">⚙️ 设置</button>':'<button class="btn btn-primary btn-sm" id="btn-friend">➕ 添加好友</button>')+'</div></div><div id="profile-moods">'+mh+'</div>'; if(isSelf){var eb=$el("btn-edit");if(eb)eb.onclick=function(){showEditProfile(p);};var sb=$el("btn-settings");if(sb)sb.onclick=function(){navigate("settings");};}else{var fb=$el("btn-friend");if(fb)fb.onclick=async function(){try{var r=await API.sendFriendRequest(uid);toast(r.message);fb.textContent="✓已发送";fb.disabled=true;}catch(e){toast(e.message,true);}};} }catch(e){app.innerHTML='<div class="empty-state"><div class="icon">⚠️</div><p>加载失败</p></div>';} }
+var weekH="";if(wk){weekH='<div style="margin-bottom:16px"><div style="font-weight:700;font-size:14px;margin-bottom:12px">📈 本周心情 ('+wk.total_this_week+'条)</div><div class="week-grid">';for(var i=0;i<wk.days.length;i++){var d=wk.days[i];weekH+='<div class="week-day'+(d.mood?' has-mood':'')+'"><div class="day-emoji">'+(d.emoji||'·')+'</div><div class="day-date">'+d.date.split('-')[1]+'/'+d.date.split('-')[0]+'</div></div>';}weekH+='</div></div>';} var sid=API.user?API.user.id:null; app.innerHTML='<div class="page-header" style="font-size:18px;font-weight:700;padding:16px 18px">'+(isSelf?'👤 我的主页':'👤 '+esc(p.username)+' 的主页')+(!isSelf?'<span style="font-size:13px;font-weight:400;color:var(--primary);float:right;cursor:pointer" onclick="navigate(\'profile\',{userId:'+sid+'})">← 返回我的主页</span>':"")+'</div><div class="profile-cover"></div><div class="profile-info">'+weekH+'<div class="profile-avatar-lg avatar-'+col+'">'+esc(em)+'</div><div class="profile-name">'+esc(p.username)+streakH+'</div><div class="profile-handle">@'+esc(p.username)+' · '+fmtDate(p.created_at)+'</div><div class="profile-bio">'+esc(p.bio||"这个人很懒，什么都没写")+'</div>'+(bars?'<div style="margin-bottom:8px">'+bars+'</div>':'')+'<div class="profile-stats"><span><strong>'+p.mood_count+'</strong> 心情</span><span><strong>'+p.friend_count+'</strong> 好友</span><span><strong>'+p.family_count+'</strong> 家庭</span></div><div class="profile-actions">'+(isSelf?'<button class="btn btn-outline btn-sm" id="btn-edit">✏️ 编辑资料</button> <button class="btn btn-outline btn-sm" id="btn-settings">⚙️ 设置</button>':'<button class="btn btn-primary btn-sm" id="btn-friend">➕ 添加好友</button>')+'</div></div><div id="profile-moods">'+mh+'</div>'; if(isSelf){var eb=$el("btn-edit");if(eb)eb.onclick=function(){showEditProfile(p);};var sb=$el("btn-settings");if(sb)sb.onclick=function(){navigate("settings");};var searchBtn=$el("btn-search");if(searchBtn)searchBtn.onclick=function(){navigate("settings");};var exportBtn=$el("btn-export");if(exportBtn)exportBtn.onclick=async function(){try{var data=await API.exportMoods();var blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="mood-diary-export-"+new Date().toISOString().slice(0,10)+".json";a.click();toast("已导出 "+data.count+" 条记录");}catch(e){toast(e.message,true);}};}else{var fb=$el("btn-friend");if(fb)fb.onclick=async function(){try{var r=await API.sendFriendRequest(uid);toast(r.message);fb.textContent="✓已发送";fb.disabled=true;}catch(e){toast(e.message,true);}};} }catch(e){app.innerHTML='<div class="empty-state"><div class="icon">⚠️</div><p>加载失败</p></div>';} }
 
 function showEditProfile(p) {
     var colorOpts = "", emojiOpts = "", themeOpts = "";
@@ -341,17 +344,31 @@ function closeImg() { var vi=$el("image-viewer");if(vi)vi.style.display="none"; 
 function logout() { API.token=null;API.user=null;localStorage.removeItem("token");localStorage.removeItem("user");document.body.className="";updateSidebar();navigate("login"); }
 
 /* ==================== Init ==================== */
+// Boss key - press Esc to hide content
+var bossKeyActive = false; var bossBackup = "";
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && API.token) {
+        if (!bossKeyActive) { bossBackup = $el("app").innerHTML; $el("app").innerHTML = '<div class="empty-state" style="padding:120px 20px"><div class="icon">📊</div><h3>Q3 销售数据报表</h3><p>加载中...</p></div>'; bossKeyActive = true; }
+        else { $el("app").innerHTML = bossBackup; bossKeyActive = false; navigate(curView, curData); }
+    }
+});
+
+// Guest mode - browse without login
+function renderGuestBanner() {
+    return '<div style="padding:12px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);text-align:center;font-size:var(--text-sm)">' +
+        '👋 你正在以游客身份浏览 · <a style="color:var(--primary);font-weight:600;cursor:pointer" onclick="navigate(\'login\')">登录</a> 或 <a style="color:var(--primary);font-weight:600;cursor:pointer" onclick="navigate(\'login\')">注册</a> 加入心情日记</div>';
+}
+
 function init() {
     updateSidebar();
-    // Mobile nav click handlers
     var mlinks = document.querySelectorAll(".mobile-nav a");
     for (var i = 0; i < mlinks.length; i++) {
         mlinks[i].onclick = (function(view) {
-            return function(e) { e.preventDefault(); navigate(view, { userId: API.user ? API.user.id : null }); };
+            return function(e) { e.preventDefault(); if (!API.token && view !== "feed" && view !== "stats") { navigate("login"); return; } navigate(view, { userId: API.user ? API.user.id : null }); };
         })(mlinks[i].getAttribute("data-view"));
     }
     if (API.token && API.user) { navigate("feed"); }
-    else { navigate("login"); $el("mobile-nav").style.display = "none"; }
+    else { navigate("feed"); $el("mobile-nav").style.display = "none"; }
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 else init();
