@@ -118,29 +118,48 @@ async function loadComments(id) {
     try {
         var comments = await API.getComments(id);
         var h = '<div style="border-top:1px solid var(--border-light);margin-top:8px;padding-top:8px">';
-        h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">';
-        h += '<input type="text" id="cmt-input-'+id+'" placeholder="写评论..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:20px;font-size:13px;font-family:var(--font);outline:none">';
-        h += '<button class="btn btn-primary btn-sm" onclick="submitComment('+id+')">发送</button></div>';
+        h += '<div class="comment-input-row"><input type="text" id="cmt-input-'+id+'" placeholder="写评论..."><input type="file" id="cmt-img-'+id+'" accept="image/*" style="display:none"><button class="icon-btn" id="cmt-img-btn-'+id+'" title="图片">🖼️</button><button class="btn btn-primary btn-sm" id="cmt-submit-'+id+'">发送</button></div>';
         for (var i = 0; i < comments.length; i++) {
             var c = comments[i];
-            h += '<div style="padding:6px 0;font-size:13px"><b>'+esc(c.username)+'</b> '+esc(c.content)+'</div>';
+            var imgH = c.image ? '<img src="'+imgUrl(c.image)+'" style="max-height:120px;border-radius:8px;margin-top:6px;cursor:pointer" class="cmt-img" data-src="'+imgUrl(c.image)+'">' : '';
+            h += '<div style="padding:6px 0;font-size:13px"><b>'+esc(c.username)+'</b> '+esc(c.content)+imgH+'</div>';
         }
         h += '</div>';
         el.innerHTML = h;
+        // Bind event handlers
+        var imgBtn = document.getElementById("cmt-img-btn-"+id);
+        var imgInp = document.getElementById("cmt-img-"+id);
+        var subBtn = document.getElementById("cmt-submit-"+id);
+        if (imgBtn && imgInp) imgBtn.onclick = function() { imgInp.click(); };
+        if (subBtn) subBtn.onclick = function() { submitComment(id); };
+        // Enter key submits
+        var inp = document.getElementById("cmt-input-"+id);
+        if (inp) inp.onkeydown = function(e) { if (e.key === "Enter") submitComment(id); };
+        // Bind comment image clicks
+        var imgs = el.querySelectorAll(".cmt-img");
+        for (var j = 0; j < imgs.length; j++) {
+            imgs[j].onclick = function() { openImg(this.getAttribute("data-src")); };
+        }
     } catch(e) { el.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">加载失败</p>'; }
 }
 
 async function submitComment(id) {
     if (!API.token) { toast("请先登录", true); return; }
     var inp = document.getElementById("cmt-input-"+id);
+    var imgInp = document.getElementById("cmt-img-"+id);
     if (!inp) return;
     var content = inp.value.trim();
-    if (!content) return;
+    var imgFile = imgInp ? imgInp.files[0] : null;
+    if (!content && !imgFile) return;
     var fd = new FormData();
-    fd.append("content", content);
+    if (content) fd.append("content", content);
+    if (imgFile) fd.append("image", imgFile);
     try {
         await API.addComment(id, fd);
         inp.value = "";
+        if (imgInp) imgInp.value = "";
+        var preview = document.getElementById("cmt-preview-"+id);
+        if (preview) preview.innerHTML = "";
         loadComments(id);
     } catch(e) { toast(e.message, true); }
 }
