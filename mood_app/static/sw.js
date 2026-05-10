@@ -15,23 +15,23 @@ self.addEventListener("activate", function(e) {
 
 self.addEventListener("fetch", function(e) {
     if (e.request.method !== "GET") return;
-    // API calls: network first, no cache
+    // API: network only
     if (e.request.url.includes("/api/")) {
         e.respondWith(fetch(e.request).catch(function() {
             return new Response(JSON.stringify({error:"离线状态"}), {status:503,headers:{"Content-Type":"application/json"}});
         }));
         return;
     }
-    // Static assets: cache first, then network
+    // HTML/JS/CSS: network first, fallback to cache
     e.respondWith(
-        caches.match(e.request).then(function(r) {
-            return r || fetch(e.request).then(function(res) {
-                if (res.ok && e.request.url.startsWith(self.location.origin)) {
-                    var clone = res.clone();
-                    caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
-                }
-                return res;
-            });
+        fetch(e.request).then(function(res) {
+            if (res.ok && e.request.url.startsWith(self.location.origin)) {
+                var clone = res.clone();
+                caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+            }
+            return res;
+        }).catch(function() {
+            return caches.match(e.request);
         })
     );
 });
