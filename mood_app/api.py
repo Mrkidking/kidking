@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
-from models import db, User, MoodRecord, MoodLike, Comment, FamilyGroup, FamilyMember, FriendRequest
+from models import db, User, MoodRecord, MoodLike, Comment, Notification, FamilyGroup, FamilyMember, FriendRequest
 
 api_bp = Blueprint("api", __name__)
 
@@ -580,6 +580,13 @@ def like_mood(record_id):
     db.session.add(like)
     db.session.commit()
     count = MoodLike.query.filter_by(mood_id=record_id).count()
+    # Notify the mood author
+    mood = MoodRecord.query.get(record_id)
+    if mood and mood.user_id != user_id:
+        n = Notification(user_id=mood.user_id, from_user_id=user_id,
+                         type="like", mood_id=record_id)
+        db.session.add(n)
+        db.session.commit()
     return jsonify({"message": "已点赞", "likes": count})
 
 
@@ -624,6 +631,12 @@ def add_comment(record_id):
         return jsonify({"error": "评论不能为空"}), 400
     comment = Comment(user_id=user_id, mood_id=record_id, content=content, image=image)
     db.session.add(comment)
+    # Notify the mood author
+    mood = MoodRecord.query.get(record_id)
+    if mood and mood.user_id != user_id:
+        n = Notification(user_id=mood.user_id, from_user_id=user_id,
+                         type="comment", mood_id=record_id)
+        db.session.add(n)
     db.session.commit()
     return jsonify({"message": "评论成功", "comment": comment.to_dict()}), 201
 
@@ -638,6 +651,59 @@ def delete_comment(comment_id):
     db.session.delete(comment)
     db.session.commit()
     return jsonify({"message": "已删除"})
+
+
+# ==================== Notifications ====================
+
+@api_bp.route("/api/notifications", methods=["GET"])
+@jwt_required()
+def get_notifications():
+    user_id = int(get_jwt_identity())
+    notifs = Notification.query.filter_by(user_id=user_id).order_by(
+        Notification.created_at.desc()).limit(30).all()
+    unread = Notification.query.filter_by(user_id=user_id, is_read=False).count()
+    return jsonify({"unread": unread, "notifications": [n.to_dict() for n in notifs]})
+
+
+@api_bp.route("/api/notifications/read", methods=["POST"])
+@jwt_required()
+def mark_notifications_read():
+    user_id = int(get_jwt_identity())
+    Notification.query.filter_by(user_id=user_id, is_read=False).update(
+        {"is_read": True})
+    db.session.commit()
+    return jsonify({"message": "已全部已读"})
+
+
+# ==================== Achievements ====================
+
+@api_bp.route("/api/achievements", methods=["GET"])
+@jwt_required()
+def get_achievements():
+    user_id = int(get_jwt_identity())
+    total = MoodRecord.query.filter_by(user_id=user_id).count()
+    # Streak
+    from sqlalchemy import distinct, cast, Date as DType
+    dates = db.session.query(distinct(cast(MoodRecord.created_at, DType))).filter(
+        MoodRecord.user_id == user_id).order_by(cast(MoodRecord.created_at, DType).desc()).limit(366).all()
+    streak = 0
+    check = datetime.now(timezone.utc).date()
+    for d in [x[0] for x in dates]:
+        if d == check or d == check - timedelta(days=1):
+            streak += 1; check = d
+        else: break
+    friends = FriendRequest.friend_count(user_id)
+    badges = []
+    if total >= 1: badges.append({"id":"first","name":"初来乍到","desc":"发布第一条心情","icon":"🌱"})
+    if total >= 10: badges.append({"id":"mood10","name":"心情收集者","desc":"发布了 10 条心情","icon":"📝"})
+    if total >= 50: badges.append({"id":"mood50","name":"心灵作家","desc":"发布了 50 条心情","icon":"✍️"})
+    if total >= 100: badges.append({"id":"mood100","name":"情绪大师","desc":"发布了 100 条心情","icon":"🏆"})
+    if streak >= 3: badges.append({"id":"streak3","name":"三日之约","desc":"连续记录 3 天","icon":"🔥"})
+    if streak >= 7: badges.append({"id":"streak7","name":"一周坚持","desc":"连续记录 7 天","icon":"⭐"})
+    if streak >= 30: badges.append({"id":"streak30","name":"月度之星","desc":"连续记录 30 天","icon":"🌟"})
+    if friends >= 1: badges.append({"id":"friend1","name":"社交达人","desc":"交到第一个朋友","icon":"🤝"})
+    if friends >= 10: badges.append({"id":"friend10","name":"广结良缘","desc":"拥有 10 个好友","icon":"👥"})
+    return jsonify({"badges": badges, "total_moods": total, "streak": streak, "friends": friends})
 
 
 # ==================== Weather ====================

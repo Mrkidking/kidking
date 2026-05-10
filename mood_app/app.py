@@ -60,6 +60,22 @@ def create_app():
             db.session.commit()
         except Exception:
             db.session.rollback()
+        # Create notification table if not exists
+        try:
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS notification (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    from_user_id INTEGER,
+                    type VARCHAR(20) NOT NULL,
+                    mood_id INTEGER,
+                    is_read BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     return app
 

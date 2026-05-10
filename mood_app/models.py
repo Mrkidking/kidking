@@ -114,6 +114,27 @@ class MoodLike(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "mood_id"),)
 
 
+class Notification(db.Model):
+    __tablename__ = "notification"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    from_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    type = db.Column(db.String(20), nullable=False)  # like, comment, friend
+    mood_id = db.Column(db.Integer, nullable=True)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship("User", foreign_keys=[user_id])
+    from_user = db.relationship("User", foreign_keys=[from_user_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id, "type": self.type, "mood_id": self.mood_id,
+            "is_read": self.is_read,
+            "from_username": self.from_user.username if self.from_user else None,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
 class Comment(db.Model):
     __tablename__ = "comment"
     id = db.Column(db.Integer, primary_key=True)
