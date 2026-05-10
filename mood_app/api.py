@@ -42,11 +42,15 @@ def create_mood():
     if len(content) > 500:
         return jsonify({"error": "心情描述不能超过500字"}), 400
 
-    file = request.files.get("image")
-    if file:
-        image = save_upload(file)
-        if not image and file.filename:
-            return jsonify({"error": "图片格式不支持（支持 png/jpg/jpeg/gif/webp）"}), 400
+    # Support up to 4 images
+    images = []
+    for key in ("image", "image1", "image2", "image3"):
+        file = request.files.get(key)
+        if file:
+            saved = save_upload(file)
+            if saved:
+                images.append(saved)
+    image = ",".join(images) if images else ""
 
     record = MoodRecord(user_id=user_id, mood=mood, content=content, tags=tags,
                         is_private=is_private, image=image)

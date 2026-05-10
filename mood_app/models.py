@@ -57,7 +57,8 @@ class MoodRecord(db.Model):
             "username": self.author.username,
             "mood": self.mood, "content": self.content,
             "tags": [t.strip() for t in self.tags.split(",") if t.strip()],
-            "image": self.image, "is_private": self.is_private,
+            "image": self.image,
+            "images": [i for i in self.image.split(",") if i.strip()] if self.image else [], "is_private": self.is_private,
             "created_at": self.created_at.isoformat(),
         }
 
