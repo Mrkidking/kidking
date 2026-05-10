@@ -8,8 +8,8 @@ var API = {
         var r = await fetch(url, o), d = await r.json();
         if (!r.ok) throw new Error(d.error || "请求失败"); return d;
     },
-    register: function(u,p) { return this.request("POST","/api/register",{username:u,password:p}); },
-    login: function(u,p) { return this.request("POST","/api/login",{username:u,password:p}); },
+    registerWithEmail: function(u,e,p) { return this.request("POST","/api/register",{username:u,email:e,password:p}); },
+    loginByEmail: function(l,p) { return this.request("POST","/api/login",{login:l,password:p}); },
     changePw: function(o,n) { return this.request("PUT","/api/password",{old_password:o,new_password:n}); },
     updateProfile: function(d) { return this.request("PUT","/api/profile",d); },
     getProfile: function(id) { return this.request("GET","/api/profile/"+id); },
@@ -82,7 +82,37 @@ function updateSidebar() {var nav=$el("sidebar-nav"),userDiv=$el("sidebar-user")
 
 function renderWelcome(app) {app.innerHTML='<div class="welcome-container"><div class="welcome-hero"><div class="welcome-logo">🌈</div><h1 class="welcome-title">心情日记</h1><p class="welcome-subtitle">记录每一刻，安放每一种心情</p><div class="welcome-stats" id="welcome-stats"><span>加载中...</span></div><div class="welcome-actions"><button class="btn btn-primary btn-lg" id="btn-welcome-login" style="min-width:200px;justify-content:center">登录 / 注册</button><button class="btn btn-outline btn-lg" id="btn-welcome-guest" style="min-width:200px;justify-content:center">游客浏览</button></div></div><div class="welcome-moods" id="welcome-moods"><div class="spinner"></div></div></div>';$el("btn-welcome-login").onclick=function(){navigate("login");};$el("btn-welcome-guest").onclick=function(){navigate("feed");};API.getStats().then(function(d){var el=$el("welcome-stats");if(el)el.innerHTML="<span>📝 "+d.total_records+" 条心情</span><span style=\x27margin-left:16px\x27>👥 "+d.total_users+" 位伙伴</span>";}).catch(function(){});API.getMoods(1).then(function(d){var el=$el("welcome-moods");if(!el)return;if(!d.records.length){el.innerHTML="";return;}var h='<h3 style="text-align:center;margin-bottom:12px">📮 最近的心情</h3>';for(var i=0;i<Math.min(d.records.length,5);i++)h+=moodCard(d.records[i],false);el.innerHTML=h;}).catch(function(){});}
 
-function renderAuth(app) {var mode="login";function h(){var isReg=mode!=="login";return '<div class="auth-container"><div class="auth-card"><div class="logo">🌈</div><h2>'+(isReg?"创建账号":"欢迎回来")+'</h2><p class="subtitle">'+(isReg?"加入心情日记社区":"登录心情日记")+'</p><div class="form-group"><label>用户名</label><input type="text" id="auth-un" placeholder="请输入用户名" maxlength="20"></div><div class="form-group"><label>密码</label><div class="pw-wrap"><input type="password" id="auth-pw" placeholder="请输入密码">'+makePwToggle("auth-pw")+'</div></div>'+(isReg?'<div class="form-group"><label>确认密码</label><div class="pw-wrap"><input type="password" id="auth-pw2" placeholder="再次输入密码">'+makePwToggle("auth-pw2")+'</div></div>':"")+'<button class="btn btn-primary btn-lg" id="auth-btn">'+(isReg?"注 册":"登 录")+'</button><div class="auth-switch">'+(isReg?"已有账号？":"还没有账号？")+' <a id="auth-sw">'+(isReg?"立即登录":"立即注册")+'</a></div></div></div>';}app.innerHTML=h();$el("auth-sw").onclick=function(){mode=mode==="login"?"register":"login";app.innerHTML=h();bind();};bind();function bind(){$el("auth-btn").onclick=submit;$el("auth-un").onkeydown=function(e){if(e.key==="Enter")$el("auth-pw").focus();};$el("auth-pw").onkeydown=function(e){if(e.key==="Enter")submit();};}async function submit(){haptic();var u=$el("auth-un").value.trim(),p=$el("auth-pw").value;var isReg=mode!=="login";if(!u||!p){toast("请填写用户名和密码",true);return;}if(u.length<2){toast("用户名至少2个字符",true);return;}if(p.length<4){toast("密码至少4个字符",true);return;}if(isReg){var p2=$el("auth-pw2");if(p2&&p!==p2.value){toast("两次密码不一致",true);return;}}var btn=$el("auth-btn");btn.disabled=true;btn.textContent="处理中...";btn.style.opacity="0.6";try{var res=isReg?await API.register(u,p):await API.login(u,p);API.token=res.token;API.user=res.user;localStorage.setItem("token",res.token);localStorage.setItem("user",JSON.stringify(res.user));applyTheme(API.user.theme);toast(res.message||"成功！");updateSidebar();navigate("feed");}catch(e){toast(e.message,true);}btn.disabled=false;btn.textContent=isReg?"注 册":"登 录";btn.style.opacity="1";}}
+function renderAuth(app) {var mode="login";function h(){var isReg=mode!=="login";return '<div class="auth-container"><div class="auth-card"><div class="logo"></div><h2>'+(isReg?"创建账号":"欢迎回来")+'</h2><p class="subtitle">'+(isReg?"加入心情日记社区":"登录心情日记")+'</p><div class="form-group"><label>用户名</label><input type="text" id="auth-un" placeholder="请输入用户名" maxlength="20" autocomplete="username"><span class="field-hint" id="hint-un"></span></div>'+(isReg?'<div class="form-group"><label>邮箱</label><input type="email" id="auth-email" placeholder="请输入邮箱" autocomplete="email"><span class="field-hint" id="hint-email"></span></div>':'')+'<div class="form-group"><label>密码'+(isReg?"（至少6位）":"")+'</label><div class="pw-wrap"><input type="password" id="auth-pw" placeholder="请输入密码" autocomplete="'+(isReg?"new-password":"current-password")+'">'+makePwToggle("auth-pw")+'</div><span class="field-hint" id="hint-pw"></span></div><button class="btn btn-primary btn-lg" id="auth-btn">'+(isReg?"注 册":"登 录")+'</button><div class="auth-switch">'+(isReg?"已有账号？":"还没有账号？")+' <a id="auth-sw">'+(isReg?"立即登录":"立即注册")+'</a></div></div></div>';}app.innerHTML=h();$el("auth-sw").onclick=function(){mode=mode==="login"?"register":"login";app.innerHTML=h();bind();};bind();function bind(){$el("auth-btn").onclick=submit;$el("auth-un").onkeydown=function(e){if(e.key==="Enter")$el("auth-pw").focus();};$el("auth-pw").onkeydown=function(e){if(e.key==="Enter")submit();};}async function submit(){haptic();var u=$el("auth-un").value.trim(),p=$el("auth-pw").value;var isReg=mode!=="login";var valid=true;
+    // Clear hints
+    [$el("hint-un"),$el("hint-email"),$el("hint-pw")].forEach(function(e){if(e){e.textContent="";e.className="field-hint";}});
+    if(!u){showHint("hint-un","请输入用户名");valid=false;}
+    else if(u.length<2){showHint("hint-un","至少2个字符");valid=false;}
+    if(isReg){
+        var em=$el("auth-email");
+        if(em){
+            var ev=em.value.trim();
+            if(!ev){showHint("hint-email","请输入邮箱");valid=false;}
+            else if(!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(ev)){showHint("hint-email","邮箱格式不正确");valid=false;}
+        }
+    }
+    if(!p){showHint("hint-pw","请输入密码");valid=false;}
+    else if(isReg&&p.length<6){showHint("hint-pw","至少6个字符");valid=false;}
+    if(!valid)return;
+    var btn=$el("auth-btn");btn.disabled=true;btn.textContent="处理中...";btn.style.opacity="0.6";
+    try{
+        var res;
+        if(isReg){
+            var emailVal=$el("auth-email").value.trim();
+            res=await API.registerWithEmail(u,emailVal,p);
+        }else{
+            res=await API.loginByEmail(u,p);
+        }
+        API.token=res.token;API.user=res.user;
+        localStorage.setItem("token",res.token);localStorage.setItem("user",JSON.stringify(res.user));
+        applyTheme(API.user.theme);toast(res.message||"成功！");updateSidebar();navigate("feed");
+    }catch(e){toast(e.message,true);}
+    btn.disabled=false;btn.textContent=isReg?"注 册":"登 录";btn.style.opacity="1";}
+function showHint(id,msg){var e=$el(id);if(e){e.textContent=msg;e.className="field-hint error";}}}
 
 function renderGuestBanner() {return '<div style="padding:10px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--text-sm);flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="goBack()" style="min-width:60px">← 返回</button><span><b>游客模式</b> · 只能浏览</span><span style="display:flex;gap:8px"><a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(\x27welcome\x27)">← 回到首页</a><a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(\x27login\x27)">登录</a></span></div>';}
 

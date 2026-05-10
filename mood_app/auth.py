@@ -1,9 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+import re
 from models import db, User
 
 auth_bp = Blueprint("auth", __name__)
+
+EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 @auth_bp.route("/api/register", methods=["POST"])
@@ -12,21 +15,26 @@ def register():
     if not data:
         return jsonify({"error": "请提供注册信息"}), 400
     username = data.get("username", "").strip()
+    email = data.get("email", "").strip().lower()
     password = data.get("password", "")
-    confirm = data.get("confirm_password", "")
-    if not username or not password:
-        return jsonify({"error": "用户名和密码不能为空"}), 400
+
+    if not username or not email or not password:
+        return jsonify({"error": "请填写所有字段"}), 400
     if len(username) < 2:
         return jsonify({"error": "用户名至少2个字符"}), 400
     if len(username) > 20:
         return jsonify({"error": "用户名最多20个字符"}), 400
-    if len(password) < 4:
-        return jsonify({"error": "密码至少4个字符"}), 400
-    if confirm and password != confirm:
-        return jsonify({"error": "两次密码不一致"}), 400
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "邮箱格式不正确"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "密码至少6个字符"}), 400
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "用户名已存在"}), 409
-    user = User(username=username, password_hash=generate_password_hash(password))
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "邮箱已被注册"}), 409
+
+    user = User(username=username, email=email,
+                password_hash=generate_password_hash(password))
     db.session.add(user)
     db.session.commit()
     token = create_access_token(identity=str(user.id))
@@ -38,11 +46,20 @@ def login():
     data = request.get_json()
     if not data:
         return jsonify({"error": "请提供登录信息"}), 400
-    username = data.get("username", "").strip()
+    login_id = data.get("login", "").strip()
     password = data.get("password", "")
-    user = User.query.filter_by(username=username).first()
+
+    if not login_id or not password:
+        return jsonify({"error": "请输入用户名/邮箱和密码"}), 400
+
+    # Try email first, then username
+    user = User.query.filter_by(email=login_id.lower()).first()
+    if not user:
+        user = User.query.filter_by(username=login_id).first()
+
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "用户名或密码错误"}), 401
+
     token = create_access_token(identity=str(user.id))
     return jsonify({"message": "登录成功", "token": token, "user": user.to_dict()}), 200
 
@@ -66,6 +83,15 @@ def update_profile():
         if existing and existing.id != user_id:
             return jsonify({"error": "用户名已被占用"}), 409
         user.username = new_username
+
+    if "email" in data:
+        new_email = data["email"].strip().lower()
+        if not EMAIL_RE.match(new_email):
+            return jsonify({"error": "邮箱格式不正确"}), 400
+        existing = User.query.filter_by(email=new_email).first()
+        if existing and existing.id != user_id:
+            return jsonify({"error": "邮箱已被占用"}), 409
+        user.email = new_email
 
     if "bio" in data:
         bio = data["bio"].strip()
@@ -113,8 +139,8 @@ def change_password():
     new_pw = data.get("new_password", "")
     if not check_password_hash(user.password_hash, old_pw):
         return jsonify({"error": "原密码错误"}), 400
-    if len(new_pw) < 4:
-        return jsonify({"error": "新密码至少4个字符"}), 400
+    if len(new_pw) < 6:
+        return jsonify({"error": "新密码至少6个字符"}), 400
     user.password_hash = generate_password_hash(new_pw)
     db.session.commit()
     return jsonify({"message": "密码修改成功"})

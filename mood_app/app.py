@@ -55,6 +55,11 @@ def create_app():
             db.session.commit()
         except Exception:
             db.session.rollback()
+        try:
+            db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS email VARCHAR(120)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     return app
 

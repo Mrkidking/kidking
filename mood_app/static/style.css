@@ -125,6 +125,8 @@ body { font-family:var(--font); background:var(--bg); color:var(--text); line-he
 .auth-card .btn { width:100%; justify-content:center; margin-top:6px; }
 .auth-switch { margin-top:18px; font-size:var(--text-sm); color:var(--text-secondary); }
 .auth-switch a { font-weight:600; cursor:pointer; color:var(--primary); }
+.field-hint { display:block; font-size:var(--text-xs); color:var(--text-muted); margin-top:3px; min-height:16px; }
+.field-hint.error { color:var(--destructive); }
 .pw-wrap { position:relative; display:flex; align-items:center; }
 .pw-wrap input { padding-right:44px; }
 .pw-toggle { position:absolute; right:12px; cursor:pointer; font-size:18px; opacity:0.5; z-index:2; }
