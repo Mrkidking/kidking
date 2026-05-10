@@ -1,12 +1,17 @@
-/* ==================== Design System ==================== */
+/* ==================== Design System - Diary & Journal ==================== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700&family=Varela+Round&display=swap');
+
 :root {
-    --primary: #D4846A; --primary-light: #E8B8A8; --primary-bg: #FDF5F1;
-    --primary-glow: rgba(212,132,106,0.18);
-    --accent: #C9A87C; --accent-bg: #FBF6EF;
-    --bg: #FAF7F2; --card: #FFFFFF;
-    --text: #2C241E; --text-secondary: #7A7068; --text-muted: #A8988C;
-    --border: #EDE6DD; --border-light: #F4EFE8;
-    --hover: #F6F0E8;
+    /* Diary & Journal App palette - warm brown + ink violet */
+    --primary: #92400E; --primary-light: #B45309; --primary-bg: #FEF3C7;
+    --primary-glow: rgba(146,64,14,0.15);
+    --secondary: #A16207; --secondary-bg: #FEF9E7;
+    --accent: #6366F1; --accent-bg: #EEF2FF;
+    --bg: #FFFBEB; --card: #FFFFFF;
+    --text: #0F172A; --text-secondary: #475569; --text-muted: #64748B;
+    --border: #F1E8E2; --border-light: #F8F3F0;
+    --hover: #FEF9E7; --muted: #F8F3F0;
+    --destructive: #DC2626;
     --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
     --shadow: 0 2px 8px rgba(0,0,0,0.05);
@@ -14,7 +19,8 @@
     --r-xs: 8px; --r-sm: 14px; --r: 18px; --r-lg: 24px; --r-full: 50px;
     --ease: cubic-bezier(0.25,0.1,0.25,1);
     --duration: 0.25s;
-    --font: -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;
+    --font: "Nunito Sans","Varela Round",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    --font-heading: "Varela Round","Nunito Sans",sans-serif;
     --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-base: 1rem; --text-lg: 1.125rem; --text-xl: 1.25rem; --text-2xl: 1.5rem;
     --leading: 1.6; --leading-relaxed: 1.75;
     --glass-bg: rgba(255,255,255,0.8); --glass-blur: blur(16px);
@@ -33,6 +39,8 @@ body.theme-sunset { --primary:#C88880; --primary-light:#E0B8B0; --primary-bg:#FD
 /* Reset */
 *,*::before,*::after { margin:0;padding:0;box-sizing:border-box; }
 body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:var(--leading); min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+:focus-visible { outline:2px solid var(--primary); outline-offset:2px; border-radius:2px; }
+::selection { background:var(--primary-bg); color:var(--primary); }
 
 /* ==================== Layout ==================== */
 .app-layout { display:flex; justify-content:center; max-width:1200px; margin:0 auto; min-height:100vh; }
