@@ -40,6 +40,13 @@ var API = {
     getFriends: function() { return this.request("GET","/api/friends"); },
     getFriendsMoods: function(p) { return this.request("GET","/api/friends/moods?page="+p+"&per_page=15"); },
     removeFriend: function(id) { return this.request("DELETE","/api/friends/remove/"+id); },
+    likeMood: function(id) { return this.request("POST","/api/moods/"+id+"/like"); },
+    unlikeMood: function(id) { return this.request("DELETE","/api/moods/"+id+"/like"); },
+    getLikes: function(id) { return this.request("GET","/api/moods/"+id+"/likes"); },
+    getComments: function(id) { return this.request("GET","/api/moods/"+id+"/comments"); },
+    addComment: function(id,fd) { return this.request("POST","/api/moods/"+id+"/comments",fd,true); },
+    deleteComment: function(id) { return this.request("DELETE","/api/comments/"+id); },
+    getWeather: function() { return this.request("GET","/api/weather"); },
 };
 
 var MOODS = { happy:{emoji:"😊",name:"开心"}, calm:{emoji:"😌",name:"平静"}, sad:{emoji:"😢",name:"难过"}, anxious:{emoji:"😰",name:"焦虑"}, excited:{emoji:"🤩",name:"兴奋"}, tired:{emoji:"😴",name:"疲惫"}, storm:{emoji:"⛈️",name:"暴风雨"}, chaos:{emoji:"🌪️",name:"泥石流"}, void:{emoji:"🕳️",name:"虚空"}, indescribable:{emoji:"🌫️",name:"难以言说"}, grateful:{emoji:"🙏",name:"感恩"}, nostalgic:{emoji:"🌅",name:"怀旧"} };
@@ -67,8 +74,8 @@ function goBack() {if(navHistory.length>0){var prev=navHistory[navHistory.length
 function navigate(view, data) {if(curView&&curView!=="welcome"&&curView!=="login"){navHistory.push({view:curView,data:curData});if(navHistory.length>50)navHistory.shift();}curView=view;curData=data||{};window.onscroll=null;_doNav(view,data);}
 function _doNav(view, data) {var links=document.querySelectorAll(".sidebar-nav a");for(var i=0;i<links.length;i++)links[i].classList.remove("active");var al=document.querySelector('.sidebar-nav a[data-view="'+view+'"]');if(al)al.classList.add("active");var mlinks=document.querySelectorAll(".mobile-nav a");for(var i=0;i<mlinks.length;i++)mlinks[i].classList.remove("active");var mal=document.querySelector('.mobile-nav a[data-view="'+view+'"]');if(mal)mal.classList.add("active");var app=$el("app"),rp=$el("right-panel");if(!app)return;var guestBlocked=["friends","families","family-detail","settings"];if(!API.token&&guestBlocked.indexOf(view)>=0)view="login";if(!API.token&&view==="profile"&&!data.userId)view="login";if(view==="login"){renderAuth(app);renderRight(rp,"");}else if(view==="welcome"){renderWelcome(app);renderRight(rp,"");}else if(view==="feed"){renderFeed(app);renderRightDefault(rp);}else if(view==="friends"){renderFriends(app);renderRight(rp,"");}else if(view==="families"){renderFamilies(app);renderRight(rp,"");}else if(view==="family-detail"){renderFamilyDetail(app,data.groupId);renderRight(rp,"");}else if(view==="profile"){var uid=data.userId||(API.user&&API.user.id);if(uid){renderProfile(app,uid);renderRightSearch(rp);}else{navigate("login");return;}}else if(view==="settings"){renderSettings(app);renderRight(rp,"");}else if(view==="stats"){renderStats(app);renderRight(rp,"");}else if(view==="post"){if(!API.token){navigate("login");return;}navigate("feed");setTimeout(function(){var t=$el("mood-textarea");if(t){t.focus();window.scrollTo({top:0,behavior:"smooth"});}},100);}else{renderFeed(app);renderRightDefault(rp);}}
 function renderRight(panel, html) { if (panel) panel.innerHTML = html; }
-function renderRightDefault(panel) {if(!panel)return;panel.innerHTML='<div class="right-card"><h3>📊 心情分布</h3><div id="right-stats"><div class="spinner"></div></div></div>';loadRightStats();}
-function renderRightSearch(panel) {if(!panel)return;panel.innerHTML='<div class="right-card"><h3>🔍 搜索用户</h3><input class="search-input" id="search-input" placeholder="输入用户名..."><div id="search-results" style="margin-top:12px"></div></div>';var inp=$el("search-input");if(!inp)return;var timer;inp.oninput=function(){clearTimeout(timer);var q=this.value.trim();var r=$el("search-results");if(!q){if(r)r.innerHTML="";return;}timer=setTimeout(async function(){try{var u=await API.searchUsers(q);var e=$el("search-results");if(!e)return;e.innerHTML=u.length===0?'<p>未找到</p>':u.map(function(x){return '<div class="user-row" onclick="navigate(\x27profile\x27,{userId:'+x.id+'})"><div class="avatar-sm avatar-'+(x.avatar_color||avaColor(x.username))+'">'+esc(x.avatar_emoji||x.username[0].toUpperCase())+'</div><div class="ur-info"><div class="ur-name">'+esc(x.username)+'</div></div></div>';}).join("");}catch(ee){}},300);};}
+function renderRightDefault(panel) {if(!panel)return;panel.innerHTML='<div class="right-card" id="weather-card"><h3>🌤️ 天气</h3><div id="weather-widget"><div class="spinner"></div></div></div><div class="right-card"><h3>📊 心情分布</h3><div id="right-stats"><div class="spinner"></div></div></div>';loadRightStats();loadWeather();}
+async function loadWeather() {var el=document.getElementById("weather-widget");if(!el)return;try{var w=await API.getWeather();el.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:4px 0"><span style="font-size:36px">'+(w.temp>25?'☀️':w.temp>15?'⛅':'🌧️')+'</span><div><div style="font-size:24px;font-weight:700">'+w.temp+'°C</div><div style="font-size:13px;color:var(--text-secondary)">'+w.desc+' · 体感 '+w.feels_like+'°C</div><div style="font-size:12px;color:var(--text-muted)">'+w.city+'</div></div></div>';}catch(e){el.innerHTML='<p style="font-size:13px;color:var(--text-muted)">天气获取失败</p>';}} function renderRightSearch(panel) {if(!panel)return;panel.innerHTML='<div class="right-card"><h3>🔍 搜索用户</h3><input class="search-input" id="search-input" placeholder="输入用户名..."><div id="search-results" style="margin-top:12px"></div></div>';var inp=$el("search-input");if(!inp)return;var timer;inp.oninput=function(){clearTimeout(timer);var q=this.value.trim();var r=$el("search-results");if(!q){if(r)r.innerHTML="";return;}timer=setTimeout(async function(){try{var u=await API.searchUsers(q);var e=$el("search-results");if(!e)return;e.innerHTML=u.length===0?'<p>未找到</p>':u.map(function(x){return '<div class="user-row" onclick="navigate(\x27profile\x27,{userId:'+x.id+'})"><div class="avatar-sm avatar-'+(x.avatar_color||avaColor(x.username))+'">'+esc(x.avatar_emoji||x.username[0].toUpperCase())+'</div><div class="ur-info"><div class="ur-name">'+esc(x.username)+'</div></div></div>';}).join("");}catch(ee){}},300);};}
 async function loadRightStats() {var e=$el("right-stats");if(!e)return;try{var d=await API.getStats();var t=0,ks=Object.keys(d.mood_distribution);for(var i=0;i<ks.length;i++)t+=d.mood_distribution[ks[i]];if(t===0)t=1;var cols={happy:"#f59e0b",calm:"#6366f1",sad:"#3b82f6",anxious:"#ef4444",excited:"#ec4899",tired:"#8b5cf6"};var h="";for(var k in d.mood_distribution){var v=d.mood_distribution[k];h+='<div class="stat-row"><span>'+MOODS[k].emoji+'</span><div class="bar-mini"><div class="bar-mini-fill" style="width:'+((v/t)*100).toFixed(1)+'%;background:'+cols[k]+'"></div></div><span style="font-size:13px">'+v+'</span></div>';}e.innerHTML=h;}catch(ee){e.innerHTML="";}}
 
 function updateSidebar() {var nav=$el("sidebar-nav"),userDiv=$el("sidebar-user"),postBtn=$el("sidebar-post-btn");if(!nav)return;if(API.token&&API.user){if(postBtn){postBtn.style.display="";postBtn.onclick=function(){navigate("feed");};}nav.innerHTML="";var links=[["feed","🏠","首页",null],["friends","👥","好友",null],["families","👨‍👩‍👧","家庭",null],["profile","👤","个人",API.user.id],["stats","📊","统计",null]];for(var i=0;i<links.length;i++){var a=document.createElement("a");a.setAttribute("data-view",links[i][0]);if(links[i][3]!==null)a.setAttribute("data-user-id",String(links[i][3]));a.innerHTML='<span class="nav-icon">'+links[i][1]+'</span><span>'+links[i][2]+'</span>';a.onclick=(function(v,uid){return function(e){e.preventDefault();navigate(v,{userId:uid});};})(links[i][0],links[i][3]);nav.appendChild(a);}var emoji=API.user.avatar_emoji||API.user.username[0].toUpperCase(),color=API.user.avatar_color||avaColor(API.user.username);userDiv.innerHTML='<div class="avatar avatar-'+color+'" style="width:40px;height:40px;font-size:16px">'+esc(emoji)+'</div><div class="user-info"><div class="uname">'+esc(API.user.username)+'</div><div class="uhandle">@'+esc(API.user.username)+'</div></div><button class="btn btn-outline btn-sm" style="margin-left:auto" id="btn-logout">退出</button>';userDiv.onclick=function(e){if(e.target&&e.target.id==="btn-logout")return;navigate("profile",{userId:API.user.id});};var lb=$el("btn-logout");if(lb)lb.onclick=function(e){e.stopPropagation();logout();};}else{if(postBtn)postBtn.style.display="none";nav.innerHTML="";userDiv.innerHTML="";}}
@@ -79,8 +86,71 @@ function renderAuth(app) {var mode="login";function h(){var isReg=mode!=="login"
 
 function renderGuestBanner() {return '<div style="padding:10px 18px;background:var(--primary-bg);border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:var(--text-sm);flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="goBack()" style="min-width:60px">← 返回</button><span>👀 <b>游客模式</b> · 只能浏览</span><span style="display:flex;gap:8px"><a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(\x27welcome\x27)">← 回到首页</a><a style="color:var(--primary);font-weight:600;cursor:pointer;font-size:var(--text-xs)" onclick="navigate(\x27login\x27)">登录</a></span></div>';}
 
-function moodCard(r, showDel) {var m=MOODS[r.mood]||{emoji:"❓",name:r.mood},col=avaColor(r.username);var tagsH="";if(r.tags&&r.tags.length){tagsH='<div class="card-tags">';for(var i=0;i<r.tags.length;i++)tagsH+='<span class="tag">'+esc(r.tags[i])+'</span>';tagsH+='</div>';}var imgH=r.image?'<img class="mood-image" src="'+imgUrl(r.image)+'" onclick="event.stopPropagation();openImg(\x27'+imgUrl(r.image)+'\x27)" loading="lazy">':"";var privH=r.is_private?' <span style="font-size:11px;color:var(--text-muted);background:var(--hover);padding:2px 10px;border-radius:20px;margin-left:4px">🔒 私密</span>':"";var delBtn=showDel?'<button class="action-btn" title="删除" onclick="event.stopPropagation();delMood('+r.id+')">🗑️</button>':"";var editBtn=showDel?'<button class="action-btn" title="编辑" onclick="event.stopPropagation();editMoodCard('+r.id+')">✏️</button>':"";return '<div class="mood-card"><div class="card-header"><div class="avatar avatar-'+col+'" onclick="event.stopPropagation();navigate(\x27profile\x27,{userId:'+r.user_id+'})">'+esc((r.username||"?")[0].toUpperCase())+'</div><div class="header-info"><div class="header-row"><span class="uname" onclick="event.stopPropagation();navigate(\x27profile\x27,{userId:'+r.user_id+'})">'+esc(r.username)+'</span><span class="mood-tag">'+m.emoji+' '+m.name+'</span>'+privH+'<span class="utime">'+fmtTime(r.created_at)+'</span></div></div></div><div class="card-body">'+esc(r.content)+imgH+tagsH+'</div><div class="card-footer"><div class="footer-actions">'+editBtn+delBtn+'</div></div></div>';}
+function moodCard(r, showDel) {var m=MOODS[r.mood]||{emoji:"❓",name:r.mood},col=avaColor(r.username);var tagsH="";if(r.tags&&r.tags.length){tagsH='<div class="card-tags">';for(var i=0;i<r.tags.length;i++)tagsH+='<span class="tag">'+esc(r.tags[i])+'</span>';tagsH+='</div>';}var imgH=r.image?'<img class="mood-image" src="'+imgUrl(r.image)+'" onclick="event.stopPropagation();openImg(\x27'+imgUrl(r.image)+'\x27)" loading="lazy">':"";var privH=r.is_private?' <span style="font-size:11px;color:var(--text-muted);background:var(--hover);padding:2px 10px;border-radius:20px;margin-left:4px">🔒 私密</span>':"";var delBtn=showDel?'<button class="action-btn" title="删除" onclick="event.stopPropagation();delMood('+r.id+')">🗑️</button>':"";var editBtn=showDel?'<button class="action-btn" title="编辑" onclick="event.stopPropagation();editMoodCard('+r.id+')">✏️</button>':"";var likeBtn='<button class="action-btn like-btn" data-mood="'+r.id+'" onclick="event.stopPropagation();toggleLike('+r.id+',this)">❤️ <span class="like-count" id="like-cnt-'+r.id+'">0</span></button>';var cmtBtn='<button class="action-btn" onclick="event.stopPropagation();toggleComments('+r.id+',this)" title="评论">💬</button>';var shareBtn='<button class="action-btn" onclick="event.stopPropagation();shareMood('+r.id+')" title="分享">↗️</button>';return '<div class="mood-card"><div class="card-header"><div class="avatar avatar-'+col+'" onclick="event.stopPropagation();navigate(\x27profile\x27,{userId:'+r.user_id+'})">'+esc((r.username||"?")[0].toUpperCase())+'</div><div class="header-info"><div class="header-row"><span class="uname" onclick="event.stopPropagation();navigate(\x27profile\x27,{userId:'+r.user_id+'})">'+esc(r.username)+'</span><span class="mood-tag">'+m.emoji+' '+m.name+'</span>'+privH+'<span class="utime">'+fmtTime(r.created_at)+'</span></div></div></div><div class="card-body">'+esc(r.content)+imgH+tagsH+'</div><div class="card-footer"><div class="footer-actions">'+likeBtn+cmtBtn+shareBtn+editBtn+delBtn+'</div></div><div class="comment-section" id="comments-'+r.id+'" style="display:none"></div></div>';}
 async function editMoodCard(id) {var c=prompt("编辑心情内容：");if(!c||!c.trim())return;try{await API.editMood(id,{content:c.trim()});toast("已更新");if(curView==="feed")navigate("feed");else if(curView==="profile")navigate("profile",curData);}catch(e){toast(e.message,true);}}
+var loadedLikes = {};
+async function toggleLike(id, btn) {
+    if (!API.token) { toast("请先登录", true); return; }
+    var countEl = btn.querySelector(".like-count");
+    try {
+        if (btn.classList.contains("liked")) {
+            var r = await API.unlikeMood(id);
+            btn.classList.remove("liked");
+        } else {
+            var r = await API.likeMood(id);
+            btn.classList.add("liked");
+        }
+        if (countEl) countEl.textContent = r.likes;
+        loadedLikes[id] = r.likes;
+    } catch(e) { toast(e.message, true); }
+}
+
+function toggleComments(id, btn) {
+    var el = document.getElementById("comments-"+id);
+    if (!el) return;
+    if (el.style.display === "none") { el.style.display = "block"; loadComments(id); }
+    else { el.style.display = "none"; }
+}
+
+async function loadComments(id) {
+    var el = document.getElementById("comments-"+id);
+    if (!el) return;
+    try {
+        var comments = await API.getComments(id);
+        var h = '<div style="border-top:1px solid var(--border-light);margin-top:8px;padding-top:8px">';
+        h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">';
+        h += '<input type="text" id="cmt-input-'+id+'" placeholder="写评论..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:20px;font-size:13px;font-family:var(--font);outline:none">';
+        h += '<button class="btn btn-primary btn-sm" onclick="submitComment('+id+')">发送</button></div>';
+        for (var i = 0; i < comments.length; i++) {
+            var c = comments[i];
+            h += '<div style="padding:6px 0;font-size:13px"><b>'+esc(c.username)+'</b> '+esc(c.content)+'</div>';
+        }
+        h += '</div>';
+        el.innerHTML = h;
+    } catch(e) { el.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">加载失败</p>'; }
+}
+
+async function submitComment(id) {
+    if (!API.token) { toast("请先登录", true); return; }
+    var inp = document.getElementById("cmt-input-"+id);
+    if (!inp) return;
+    var content = inp.value.trim();
+    if (!content) return;
+    var fd = new FormData();
+    fd.append("content", content);
+    try {
+        await API.addComment(id, fd);
+        inp.value = "";
+        loadComments(id);
+    } catch(e) { toast(e.message, true); }
+}
+
+function shareMood(id) {
+    var url = window.location.origin + "/?mood=" + id;
+    if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function(){ toast("链接已复制！"); }); }
+    else { prompt("复制链接：", url); }
+}
+
 async function delMood(id) {if(!confirm("确定删除？"))return;try{await API.deleteMood(id);toast("已删除");if(curView==="feed")navigate("feed");else if(curView==="profile")navigate("profile",curData);}catch(e){toast(e.message,true);}}
 
 var feedMode="all",feedPage=1,feedMore=true,feedBusy=false;

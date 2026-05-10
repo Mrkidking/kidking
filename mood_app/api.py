@@ -1,10 +1,11 @@
 import os
 import uuid
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
-from models import db, User, MoodRecord, FamilyGroup, FamilyMember, FriendRequest
+from models import db, User, MoodRecord, MoodLike, Comment, FamilyGroup, FamilyMember, FriendRequest
 
 api_bp = Blueprint("api", __name__)
 
@@ -560,6 +561,100 @@ def export_moods():
             "private": r.is_private,
         })
     return jsonify({"count": len(data), "records": data})
+
+
+# ==================== Likes ====================
+
+@api_bp.route("/api/moods/<int:record_id>/like", methods=["POST"])
+@jwt_required()
+def like_mood(record_id):
+    user_id = int(get_jwt_identity())
+    existing = MoodLike.query.filter_by(user_id=user_id, mood_id=record_id).first()
+    if existing:
+        return jsonify({"error": "已经点赞过了"}), 409
+    like = MoodLike(user_id=user_id, mood_id=record_id)
+    db.session.add(like)
+    db.session.commit()
+    count = MoodLike.query.filter_by(mood_id=record_id).count()
+    return jsonify({"message": "已点赞", "likes": count})
+
+
+@api_bp.route("/api/moods/<int:record_id>/like", methods=["DELETE"])
+@jwt_required()
+def unlike_mood(record_id):
+    user_id = int(get_jwt_identity())
+    like = MoodLike.query.filter_by(user_id=user_id, mood_id=record_id).first()
+    if not like:
+        return jsonify({"error": "未点赞"}), 404
+    db.session.delete(like)
+    db.session.commit()
+    count = MoodLike.query.filter_by(mood_id=record_id).count()
+    return jsonify({"message": "已取消", "likes": count})
+
+
+@api_bp.route("/api/moods/<int:record_id>/likes", methods=["GET"])
+def get_likes(record_id):
+    count = MoodLike.query.filter_by(mood_id=record_id).count()
+    return jsonify({"likes": count})
+
+
+# ==================== Comments ====================
+
+@api_bp.route("/api/moods/<int:record_id>/comments", methods=["GET"])
+def get_comments(record_id):
+    comments = Comment.query.filter_by(mood_id=record_id).order_by(
+        Comment.created_at.desc()).limit(50).all()
+    return jsonify([c.to_dict() for c in comments])
+
+
+@api_bp.route("/api/moods/<int:record_id>/comments", methods=["POST"])
+@jwt_required()
+def add_comment(record_id):
+    user_id = int(get_jwt_identity())
+    content = request.form.get("content", "").strip()
+    image = ""
+    file = request.files.get("image")
+    if file:
+        image = save_upload(file)
+    if not content and not image:
+        return jsonify({"error": "评论不能为空"}), 400
+    comment = Comment(user_id=user_id, mood_id=record_id, content=content, image=image)
+    db.session.add(comment)
+    db.session.commit()
+    return jsonify({"message": "评论成功", "comment": comment.to_dict()}), 201
+
+
+@api_bp.route("/api/comments/<int:comment_id>", methods=["DELETE"])
+@jwt_required()
+def delete_comment(comment_id):
+    user_id = int(get_jwt_identity())
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.user_id != user_id:
+        return jsonify({"error": "只能删除自己的评论"}), 403
+    db.session.delete(comment)
+    db.session.commit()
+    return jsonify({"message": "已删除"})
+
+
+# ==================== Weather ====================
+
+@api_bp.route("/api/weather", methods=["GET"])
+def get_weather():
+    import json as _json
+    try:
+        url = "https://wttr.in?format=j1"
+        req = urllib.request.Request(url, headers={"User-Agent": "MoodDiary/1.0"})
+        data = _json.loads(urllib.request.urlopen(req, timeout=5).read())
+        current = data["current_condition"][0]
+        return jsonify({
+            "city": data["nearest_area"][0]["areaName"][0]["value"],
+            "temp": current["temp_C"],
+            "desc": current["weatherDesc"][0]["value"],
+            "feels_like": current["FeelsLikeC"],
+            "humidity": current["humidity"],
+        })
+    except Exception:
+        return jsonify({"city": "未知", "temp": "--", "desc": "获取失败", "feels_like": "--", "humidity": "--"})
 
 
 # ==================== Uploads ====================
