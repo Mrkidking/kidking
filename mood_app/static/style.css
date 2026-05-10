@@ -52,7 +52,9 @@ body { font-family:var(--font); background:var(--bg); color:var(--text); line-he
     transition:width var(--duration) var(--ease); overflow:hidden; white-space:nowrap;
 }
 .sidebar-left:hover { width:var(--sidebar-expanded); }
-.sidebar-logo { font-size:20px; font-weight:700; color:var(--primary); padding:8px; margin-bottom:16px; cursor:pointer; text-align:center; border-radius:var(--r-sm); }
+.logo-icon { display:inline-block; width:24px; height:24px; background:var(--primary); border-radius:6px; vertical-align:middle; margin-right:6px; position:relative; }
+.logo-icon::after { content:''; position:absolute; top:4px; left:4px; right:4px; bottom:4px; background:#fff; border-radius:3px; opacity:0.4; }
+.sidebar-logo { font-size:20px; font-weight:700; color:var(--primary); padding:8px; margin-bottom:16px; cursor:pointer; text-align:center; border-radius:var(--r-sm); white-space:nowrap; }
 .sidebar-nav { display:flex; flex-direction:column; gap:2px; flex:1; }
 .sidebar-nav a {
     display:flex; align-items:center; gap:14px; padding:12px 12px; border-radius:var(--r-full);

@@ -16,7 +16,7 @@
 <body>
     <div class="app-layout">
         <aside class="sidebar-left" id="sidebar-left">
-            <div class="sidebar-logo" onclick="navigate('feed')">🌈 心情日记</div>
+            <div class="sidebar-logo" onclick="navigate('feed')"><span class="logo-icon"></span>心情日记</div>
             <nav class="sidebar-nav" id="sidebar-nav"></nav>
             <button class="btn btn-primary btn-lg sidebar-post-btn" id="sidebar-post-btn" style="display:none">✨ 发布心情</button>
             <div class="sidebar-user" id="sidebar-user"></div>
@@ -33,11 +33,11 @@
 
     <!-- Mobile bottom nav -->
     <nav class="mobile-nav" id="mobile-nav">
-        <a data-view="feed"><span class="mn-icon">🏠</span><span class="mn-label">首页</span></a>
-        <a data-view="friends"><span class="mn-icon">👥</span><span class="mn-label">好友</span></a>
-        <a data-view="post" id="mn-post-btn"><span class="mn-icon">✨</span><span class="mn-label">发布</span></a>
-        <a data-view="families"><span class="mn-icon">👨‍👩‍👧</span><span class="mn-label">家庭</span></a>
-        <a data-view="profile"><span class="mn-icon">👤</span><span class="mn-label">个人</span></a>
+        <a data-view="feed"><span class="mn-icon mn-icon-home"></span><span class="mn-label">首页</span></a>
+        <a data-view="friends"><span class="mn-icon mn-icon-users"></span><span class="mn-label">好友</span></a>
+        <a data-view="post" id="mn-post-btn"><span class="mn-icon mn-icon-plus"></span><span class="mn-label">发布</span></a>
+        <a data-view="families"><span class="mn-icon mn-icon-family"></span><span class="mn-label">家庭</span></a>
+        <a data-view="profile"><span class="mn-icon mn-icon-user"></span><span class="mn-label">个人</span></a>
     </nav>
 
     <!-- Modal -->
