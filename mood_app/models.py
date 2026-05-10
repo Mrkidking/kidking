@@ -114,6 +114,27 @@ class MoodLike(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "mood_id"),)
 
 
+class Message(db.Model):
+    __tablename__ = "message"
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    content = db.Column(db.Text, default="")
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    sender = db.relationship("User", foreign_keys=[sender_id])
+    receiver = db.relationship("User", foreign_keys=[receiver_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id, "sender_id": self.sender_id,
+            "sender_name": self.sender.username,
+            "receiver_id": self.receiver_id,
+            "content": self.content, "is_read": self.is_read,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
 class Notification(db.Model):
     __tablename__ = "notification"
     id = db.Column(db.Integer, primary_key=True)

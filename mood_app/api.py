@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
-from models import db, User, MoodRecord, MoodLike, Comment, Notification, FamilyGroup, FamilyMember, FriendRequest
+from models import db, User, MoodRecord, MoodLike, Comment, Message, Notification, FamilyGroup, FamilyMember, FriendRequest
 
 api_bp = Blueprint("api", __name__)
 
@@ -651,6 +651,54 @@ def delete_comment(comment_id):
     db.session.delete(comment)
     db.session.commit()
     return jsonify({"message": "已删除"})
+
+
+# ==================== Messages ====================
+
+@api_bp.route("/api/messages", methods=["GET"])
+@jwt_required()
+def get_messages():
+    user_id = int(get_jwt_identity())
+    # Get conversation partners
+    sent = db.session.query(Message.receiver_id).filter_by(sender_id=user_id).distinct().all()
+    received = db.session.query(Message.sender_id).filter_by(receiver_id=user_id).distinct().all()
+    partner_ids = set()
+    for r in sent: partner_ids.add(r[0])
+    for r in received: partner_ids.add(r[0])
+    partners = User.query.filter(User.id.in_(partner_ids)).all() if partner_ids else []
+    return jsonify([p.to_dict() for p in partners])
+
+
+@api_bp.route("/api/messages/<int:partner_id>", methods=["GET"])
+@jwt_required()
+def get_conversation(partner_id):
+    user_id = int(get_jwt_identity())
+    msgs = Message.query.filter(
+        db.or_(
+            db.and_(Message.sender_id == user_id, Message.receiver_id == partner_id),
+            db.and_(Message.sender_id == partner_id, Message.receiver_id == user_id),
+        )
+    ).order_by(Message.created_at.asc()).limit(50).all()
+    # Mark received as read
+    Message.query.filter_by(sender_id=partner_id, receiver_id=user_id, is_read=False).update({"is_read": True})
+    db.session.commit()
+    return jsonify([m.to_dict() for m in msgs])
+
+
+@api_bp.route("/api/messages/<int:partner_id>", methods=["POST"])
+@jwt_required()
+def send_message(partner_id):
+    user_id = int(get_jwt_identity())
+    if user_id == partner_id:
+        return jsonify({"error": "不能给自己发消息"}), 400
+    data = request.get_json()
+    if not data or not data.get("content", "").strip():
+        return jsonify({"error": "消息不能为空"}), 400
+    msg = Message(sender_id=user_id, receiver_id=partner_id,
+                  content=data["content"].strip())
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({"message": "发送成功", "msg": msg.to_dict()}), 201
 
 
 # ==================== Notifications ====================
