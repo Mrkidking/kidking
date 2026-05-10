@@ -98,14 +98,56 @@ def get_user_moods(user_id):
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     per_page = min(per_page, 50)
-    pagination = MoodRecord.query.filter_by(user_id=user_id).order_by(
-        MoodRecord.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    date_filter = request.args.get("date", "").strip()
+
+    query = MoodRecord.query.filter_by(user_id=user_id)
+    if date_filter:
+        try:
+            filter_date = datetime.strptime(date_filter, "%Y-%m-%d").date()
+            query = query.filter(
+                db.cast(MoodRecord.created_at, db.Date) == filter_date
+            )
+        except ValueError:
+            pass
+
+    pagination = query.order_by(MoodRecord.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False)
     return jsonify({
         "records": [r.to_dict() for r in pagination.items],
         "total": pagination.total,
         "pages": pagination.pages,
         "page": page,
     })
+
+
+@api_bp.route("/api/moods/<int:record_id>", methods=["PUT"])
+@jwt_required()
+def edit_mood(record_id):
+    user_id = int(get_jwt_identity())
+    record = MoodRecord.query.get_or_404(record_id)
+    if record.user_id != user_id:
+        return jsonify({"error": "只能编辑自己的心情记录"}), 403
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请提供更新内容"}), 400
+    if "content" in data:
+        content = data["content"].strip()
+        if not content:
+            return jsonify({"error": "内容不能为空"}), 400
+        if len(content) > 500:
+            return jsonify({"error": "心情描述不能超过500字"}), 400
+        record.content = content
+    if "mood" in data:
+        mood = data["mood"].strip()
+        if mood not in MoodRecord.MOOD_CHOICES:
+            return jsonify({"error": "无效的心情状态"}), 400
+        record.mood = mood
+    if "tags" in data:
+        record.tags = data["tags"]
+    if "is_private" in data:
+        record.is_private = data["is_private"]
+    db.session.commit()
+    return jsonify({"message": "更新成功", "record": record.to_dict()}), 200
 
 
 @api_bp.route("/api/moods/<int:record_id>", methods=["DELETE"])
